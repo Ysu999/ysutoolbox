@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EQ Random Checker — Frostreaver Toolbox</title>
+<style>
+  :root{
+    --bg:#0c0e14;
+    --panel:#151822;
+    --panel-2:#1b1f2c;
+    --border:#2a2f3f;
+    --text:#e6e8ef;
+    --dim:#8b91a5;
+    --accent:#7c5cff;
+    --accent-2:#ff8a3d;
+    --gold:#e8c56b;
+    --ok:#4caf7d;
+    --warn:#e0574a;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 20% 0%, #1a1d2b 0%, transparent 40%),
+      radial-gradient(circle at 80% 100%, #1a1420 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:24px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  header{
+    margin-bottom:20px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+  h1{
+    font-size:20px;
+    margin:0;
+    letter-spacing:0.5px;
+    display:flex;align-items:center;gap:10px;
+  }
+  h1 .tag{
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent-2);
+    border:1px solid var(--accent-2);
+    padding:2px 8px;
+    border-radius:20px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .sub{color:var(--dim);font-size:13px;margin-top:4px;}
+
+  .controls{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:18px;
+  }
+  button{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    padding:9px 16px;
+    border-radius:7px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:filter .15s ease, transform .05s ease;
+  }
+  button:hover{filter:brightness(1.12);}
+  button:active{transform:scale(0.98);}
+  button.secondary{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+  }
+  button.danger{
+    background:var(--warn);
+  }
+  button.gold{
+    background:var(--gold);
+    color:#1a1508;
+  }
+  button:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+  }
+  .status-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--dim);
+    display:inline-block;
+    margin-right:6px;
+  }
+  .status-dot.live{
+    background:var(--ok);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(76,175,125,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(76,175,125,0);}
+    100%{box-shadow:0 0 0 0 rgba(76,175,125,0);}
+  }
+  .status-dot.locked{background:var(--warn);}
+  .status-text{font-size:12.5px;color:var(--dim);}
+  .filename{
+    font-size:12.5px;color:var(--dim);
+    margin-left:auto;
+    max-width:280px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+
+  .recent-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:18px;
+  }
+  .recent-panel .rp-header{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;
+    color:var(--dim);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    margin-bottom:10px;
+  }
+  .recent-panel .rp-header button{
+    background:none;
+    border:none;
+    color:var(--dim);
+    font-size:11px;
+    text-transform:none;
+    letter-spacing:0;
+    cursor:pointer;
+    padding:2px 6px;
+  }
+  .recent-panel .rp-header button:hover{color:var(--warn);}
+  .recent-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .recent-item{
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:7px 10px;
+    font-size:12.5px;
+    cursor:pointer;
+  }
+  .recent-item:hover{border-color:var(--accent);}
+  .recent-item .rname{font-weight:600;}
+  .recent-item .rtime{color:var(--dim);font-size:11px;}
+  .recent-item .rremove{color:var(--dim);font-size:13px;line-height:1;padding:2px 4px;cursor:pointer;}
+  .recent-item .rremove:hover{color:var(--warn);}
+  .recent-empty{color:var(--dim);font-size:12.5px;}
+
+  .winner-banner{
+    display:none;
+    background:linear-gradient(135deg, rgba(232,197,107,0.14), rgba(124,92,255,0.10));
+    border:1px solid var(--gold);
+    border-radius:10px;
+    padding:18px 20px;
+    margin-bottom:18px;
+    text-align:center;
+  }
+  .winner-banner.show{display:block;}
+  .winner-banner .crown{font-size:26px;margin-bottom:4px;}
+  .winner-banner .who{font-size:22px;font-weight:700;color:var(--gold);}
+  .winner-banner .roll{font-size:14px;color:var(--dim);margin-top:4px;}
+  .winner-banner.tie{border-color:var(--warn);}
+  .winner-banner.tie .who{color:var(--warn);}
+  .winner-banner .tie-note{font-size:13px;color:var(--text);margin-top:8px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    margin-bottom:18px;
+  }
+  .panel-header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    color:var(--dim);
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .panel-body{max-height:50vh;overflow-y:auto;}
+  .empty{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--dim);
+    font-size:13.5px;
+    line-height:1.6;
+  }
+  table{width:100%;border-collapse:collapse;}
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--dim);
+    padding:8px 16px;
+    border-bottom:1px solid var(--border);
+    position:sticky;top:0;
+    background:var(--panel);
+  }
+  td{
+    padding:9px 16px;
+    font-size:13.5px;
+    border-bottom:1px solid var(--border);
+  }
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--panel-2);}
+  tr.top-roll td{background:rgba(232,197,107,0.08);}
+  tr.top-roll td:first-child{color:var(--gold);font-weight:700;}
+  .rank{color:var(--dim);font-size:12px;}
+  .roll-val{font-weight:700;font-size:15px;}
+  .range-tag{
+    font-size:10.5px;
+    color:var(--dim);
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    padding:1px 6px;
+    border-radius:5px;
+  }
+  .range-tag.off{color:var(--warn);border-color:var(--warn);}
+
+  .audit-body{padding:14px 16px;}
+  .audit-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  .audit-row:last-child{border-bottom:none;}
+  .audit-row .range{font-weight:600;}
+  .audit-row .count{color:var(--dim);font-size:12px;}
+  .audit-row.majority .range{color:var(--ok);}
+  .audit-row.minority .range{color:var(--warn);}
+  .audit-note{
+    font-size:11.5px;color:var(--dim);
+    padding:10px 16px 4px;
+    border-top:1px dashed var(--border);
+    margin-top:4px;
+    line-height:1.6;
+  }
+
+  .footer-note{
+    margin-top:4px;
+    font-size:11.5px;
+    color:var(--dim);
+    line-height:1.6;
+  }
+  .footer-note code{
+    background:var(--panel-2);
+    padding:1px 6px;
+    border-radius:4px;
+    border:1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Random Checker <span class="tag">Frostreaver Toolbox</span></h1>
+    <div class="sub">Watches for /random rolls in your log and tells you who won when you cut it off.</div>
+  </header>
+
+  <div class="controls">
+    <button id="pickBtn">Choose Log File…</button>
+    <button id="startBtn" class="secondary" disabled>Start Monitoring</button>
+    <button id="cutoffBtn" class="gold" disabled>Cut Off &amp; Crown Winner</button>
+    <button id="resetBtn" class="secondary">New Roll (Clear)</button>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-text" id="statusText">No file selected</span>
+    <span class="filename" id="fileName"></span>
+  </div>
+
+  <div class="recent-panel">
+    <div class="rp-header">
+      <span>Recent Log Files</span>
+      <button id="clearRecentBtn">Clear all</button>
+    </div>
+    <div class="recent-list" id="recentList">
+      <span class="recent-empty">No recent files yet — files you open will show up here for quick reload.</span>
+    </div>
+  </div>
+
+  <div class="winner-banner" id="winnerBanner">
+    <div class="crown">👑</div>
+    <div class="who" id="winnerWho">—</div>
+    <div class="roll" id="winnerRoll">—</div>
+    <div class="tie-note" id="tieNote" style="display:none;"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Rolls</span>
+      <span id="countLabel">0 rolls</span>
+    </div>
+    <div class="panel-body" id="rollsBody">
+      <div class="empty" id="emptyState">
+        Choose a log file, then click <strong>Start Monitoring</strong> right before someone calls for rolls.<br>
+        Rolls will appear here live as people <code>/random</code> in game.
+      </div>
+      <table id="rollsTable" style="display:none;">
+        <thead>
+          <tr><th>#</th><th>Player</th><th>Roll</th><th>Range Used</th><th>Time</th></tr>
+        </thead>
+        <tbody id="rollsTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header"><span>Range Audit</span></div>
+    <div class="audit-body" id="auditBody">
+      <div class="recent-empty">No rolls yet.</div>
+    </div>
+    <div class="audit-note">
+      If everyone should be rolling the same range (usually 0–1000), any other range listed here is worth a second
+      look before crowning a winner — it means that player used a different <code>/random</code> range.
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Runs entirely in your browser — the log file is never uploaded anywhere. Uses the File System Access API,
+    so this only works in Chromium browsers (Chrome, Edge). Click <strong>Start Monitoring</strong> right before
+    you call for rolls so earlier unrelated rolls in the log don't get counted — <strong>Cut Off</strong> locks
+    the results and crowns the highest roller (auto-suggesting a reroll if there's a tie).
+  </div>
+</div>
+
+<script>
+(() => {
+  const pickBtn = document.getElementById('pickBtn');
+  const startBtn = document.getElementById('startBtn');
+  const cutoffBtn = document.getElementById('cutoffBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const fileNameEl = document.getElementById('fileName');
+  const recentList = document.getElementById('recentList');
+  const clearRecentBtn = document.getElementById('clearRecentBtn');
+  const winnerBanner = document.getElementById('winnerBanner');
+  const winnerWho = document.getElementById('winnerWho');
+  const winnerRoll = document.getElementById('winnerRoll');
+  const tieNote = document.getElementById('tieNote');
+  const emptyState = document.getElementById('emptyState');
+  const rollsTable = document.getElementById('rollsTable');
+  const rollsTbody = document.getElementById('rollsTbody');
+  const countLabel = document.getElementById('countLabel');
+  const auditBody = document.getElementById('auditBody');
+
+  let fileHandle = null;
+  let lastSize = 0;
+  let pollTimer = null;
+  let leftoverPartialLine = '';
+  let rolls = []; // {who, roll, min, max, when}
+  let monitoring = false; // actively counting rolls into the current session
+  let locked = false;     // cutoff has happened
+
+  // "A Magic Die is rolled by Treeport. It could have been any number from 0 to 1000, but this time it turned up a 267"
+  const ROLL_RE = /(?:Magic Die is rolled by|rolled by)\s+(\S+(?:\s\S+)?)\.?\s*It could have been any number from (\d+) to (\d+),?\s*but this time it turned up a (\d+)/i;
+  const LOG_LINE_RE = /^\[([A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4})\]\s?(.*)$/;
+
+  function setStatus(text, mode) {
+    statusDot.classList.remove('live', 'locked');
+    if (mode === 'live') statusDot.classList.add('live');
+    if (mode === 'locked') statusDot.classList.add('locked');
+    statusText.textContent = text;
+  }
+
+  function processNewText(text) {
+    const combined = leftoverPartialLine + text;
+    const lines = combined.split(/\r?\n/);
+    leftoverPartialLine = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let when = '';
+      let body = line;
+      const m = line.match(LOG_LINE_RE);
+      if (m) { when = m[1]; body = m[2]; }
+
+      const rm = body.match(ROLL_RE);
+      if (rm && monitoring && !locked) {
+        const who = rm[1];
+        const min = parseInt(rm[2], 10);
+        const max = parseInt(rm[3], 10);
+        const roll = parseInt(rm[4], 10);
+        // avoid double counting the exact same line if the poll overlaps
+        const dupe = rolls.some(r => r.who === who && r.roll === roll && r.max === max && r.when === when);
+        if (!dupe) {
+          rolls.push({ who, roll, min, max, when });
+          renderRolls();
+          renderAudit();
+        }
+      }
+    }
+  }
+
+  async function pollFile() {
+    if (!fileHandle) return;
+    try {
+      const file = await fileHandle.getFile();
+      if (file.size < lastSize) { lastSize = 0; leftoverPartialLine = ''; }
+      if (file.size > lastSize) {
+        const slice = file.slice(lastSize, file.size);
+        const text = await slice.text();
+        lastSize = file.size;
+        processNewText(text);
+      }
+      if (!locked) {
+        setStatus(monitoring ? 'Monitoring — last checked ' + new Date().toLocaleTimeString() : 'File loaded — not monitoring yet', monitoring ? 'live' : null);
+      }
+    } catch (err) {
+      setStatus('Error reading file: ' + err.message, null);
+    }
+  }
+
+  function majorityMax() {
+    if (rolls.length === 0) return null;
+    const counts = {};
+    for (const r of rolls) counts[r.max] = (counts[r.max] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  function renderRolls() {
+    countLabel.textContent = rolls.length + ' roll' + (rolls.length === 1 ? '' : 's');
+    if (rolls.length === 0) {
+      emptyState.style.display = '';
+      rollsTable.style.display = 'none';
+      return;
+    }
+    emptyState.style.display = 'none';
+    rollsTable.style.display = '';
+
+    const maj = majorityMax();
+    const sorted = [...rolls].sort((a, b) => b.roll - a.roll);
+    const topRoll = sorted[0] ? sorted[0].roll : null;
+
+    rollsTbody.innerHTML = '';
+    sorted.forEach((r, idx) => {
+      const tr = document.createElement('tr');
+      if (r.roll === topRoll) tr.classList.add('top-roll');
+      const offRange = String(r.max) !== String(maj);
+      tr.innerHTML = `
+        <td class="rank">${idx + 1}</td>
+        <td>${r.who}</td>
+        <td class="roll-val">${r.roll}</td>
+        <td><span class="range-tag ${offRange ? 'off' : ''}">${r.min}–${r.max}</span></td>
+        <td class="rank">${r.when || ''}</td>
+      `;
+      rollsTbody.appendChild(tr);
+    });
+  }
+
+  function renderAudit() {
+    if (rolls.length === 0) {
+      auditBody.innerHTML = '<div class="recent-empty">No rolls yet.</div>';
+      return;
+    }
+    const counts = {};
+    for (const r of rolls) {
+      const key = `${r.min}\u2013${r.max}`;
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const majorityKey = entries[0][0];
+    auditBody.innerHTML = '';
+    for (const [range, count] of entries) {
+      const row = document.createElement('div');
+      row.className = 'audit-row ' + (range === majorityKey ? 'majority' : 'minority');
+      row.innerHTML = `
+        <span class="range">${range}</span>
+        <span class="count">${count} roll${count === 1 ? '' : 's'}</span>
+      `;
+      auditBody.appendChild(row);
+    }
+  }
+
+  function doCutoff() {
+    locked = true;
+    monitoring = false;
+    cutoffBtn.disabled = true;
+    startBtn.disabled = true;
+    setStatus('Locked — results final', 'locked');
+
+    if (rolls.length === 0) {
+      winnerBanner.classList.remove('show', 'tie');
+      return;
+    }
+    const topRoll = Math.max(...rolls.map(r => r.roll));
+    const winners = rolls.filter(r => r.roll === topRoll);
+
+    winnerBanner.classList.add('show');
+    if (winners.length === 1) {
+      winnerBanner.classList.remove('tie');
+      winnerWho.textContent = winners[0].who;
+      winnerRoll.textContent = `Rolled ${winners[0].roll} (out of ${winners[0].min}\u2013${winners[0].max})`;
+      tieNote.style.display = 'none';
+    } else {
+      winnerBanner.classList.add('tie');
+      winnerWho.textContent = winners.map(w => w.who).join(' & ');
+      winnerRoll.textContent = `Tied at ${topRoll}`;
+      tieNote.style.display = '';
+      tieNote.textContent = `It's a tie between ${winners.map(w => w.who).join(' and ')} — have them /random again to break it.`;
+    }
+  }
+
+  // ---- Recent files (IndexedDB-backed FileSystemFileHandle storage) ----
+  const DB_NAME = 'eq-random-checker';
+  const STORE_NAME = 'recentHandles';
+  let dbPromise = null;
+
+  function openDb() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME, { keyPath: 'id' }); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+
+  async function dbGetAll() {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result.sort((a, b) => b.lastOpened - a.lastOpened));
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function dbPut(entry) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(entry);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function dbDelete(id) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function dbClear() {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function relTime(ts) {
+    const diff = Date.now() - ts;
+    const mins = Math.round(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    return Math.round(hrs / 24) + 'd ago';
+  }
+
+  async function refreshRecentList() {
+    const entries = await dbGetAll();
+    recentList.innerHTML = '';
+    if (entries.length === 0) {
+      recentList.innerHTML = '<span class="recent-empty">No recent files yet — files you open will show up here for quick reload.</span>';
+      return;
+    }
+    for (const entry of entries) {
+      const el = document.createElement('div');
+      el.className = 'recent-item';
+      el.innerHTML = `
+        <span class="rname">${entry.name}</span>
+        <span class="rtime">${relTime(entry.lastOpened)}</span>
+        <span class="rremove" title="Remove from list">✕</span>
+      `;
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('rremove')) return;
+        openFromRecent(entry);
+      });
+      el.querySelector('.rremove').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await dbDelete(entry.id);
+        refreshRecentList();
+      });
+      recentList.appendChild(el);
+    }
+  }
+
+  async function rememberHandle(handle) {
+    try {
+      const id = handle.name;
+      await dbPut({ id, name: handle.name, handle, lastOpened: Date.now() });
+      refreshRecentList();
+    } catch (err) {
+      console.warn('Could not save recent file:', err);
+    }
+  }
+
+  async function loadFile(handle) {
+    fileHandle = handle;
+    fileNameEl.textContent = handle.name;
+    const file = await fileHandle.getFile();
+    lastSize = file.size; // don't backfill old rolls — only new ones from here
+    leftoverPartialLine = '';
+
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(pollFile, 1500);
+
+    startBtn.disabled = false;
+    pickBtn.disabled = true;
+    setStatus('File loaded — click Start Monitoring when ready', null);
+  }
+
+  async function openFromRecent(entry) {
+    try {
+      const handle = entry.handle;
+      let perm = await handle.queryPermission({ mode: 'read' });
+      if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') { setStatus('Permission denied for ' + entry.name, null); return; }
+      await loadFile(handle);
+      await dbPut({ ...entry, lastOpened: Date.now() });
+      refreshRecentList();
+    } catch (err) {
+      setStatus('Could not reopen ' + entry.name + ': ' + err.message, null);
+    }
+  }
+
+  pickBtn.addEventListener('click', async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'EQ Log Files', accept: { 'text/plain': ['.txt'] } }],
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      await loadFile(handle);
+      await rememberHandle(handle);
+    } catch (err) {
+      if (err.name !== 'AbortError') setStatus('Could not open file: ' + err.message, null);
+    }
+  });
+
+  startBtn.addEventListener('click', () => {
+    if (!fileHandle) return;
+    monitoring = true;
+    locked = false;
+    startBtn.disabled = true;
+    cutoffBtn.disabled = false;
+    setStatus('Monitoring — waiting for rolls…', 'live');
+  });
+
+  cutoffBtn.addEventListener('click', doCutoff);
+
+  resetBtn.addEventListener('click', () => {
+    rolls = [];
+    monitoring = false;
+    locked = false;
+    winnerBanner.classList.remove('show', 'tie');
+    renderRolls();
+    renderAudit();
+    startBtn.disabled = !fileHandle;
+    cutoffBtn.disabled = true;
+    if (fileHandle) setStatus('File loaded — click Start Monitoring when ready', null);
+    else setStatus('No file selected', null);
+  });
+
+  clearRecentBtn.addEventListener('click', async () => {
+    await dbClear();
+    refreshRecentList();
+  });
+
+  if (!window.showOpenFilePicker) {
+    setStatus('Unsupported browser — use Chrome or Edge', null);
+    pickBtn.disabled = true;
+  } else {
+    refreshRecentList();
+  }
+})();
+</script>
+</body>
+</html>

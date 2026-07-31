@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Box Watch — EQ Follow Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14171c;
+    --panel: #1c2128;
+    --panel-raised: #232934;
+    --line: #2c3340;
+    --gold: #c9a456;
+    --gold-dim: #8a7340;
+    --text: #e8e3d8;
+    --text-dim: #9aa1ad;
+    --green: #2ecc71;
+    --green-dark: #1f8a4d;
+    --red: #e63946;
+    --red-dark: #9c1c2a;
+    --gray: #3a4250;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at top, #1a1f27 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 16px 20px;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 1px;
+    margin: 0;
+    color: var(--gold);
+    text-shadow: 0 0 18px rgba(201,164,86,0.25);
+  }
+
+  h1 span { color: var(--text-dim); font-size: 12px; font-family:'Inter',sans-serif; font-weight: 500; letter-spacing: 0.5px; display:block; margin-top: 2px; }
+
+  .stats { display:flex; gap: 14px; font-family:'JetBrains Mono', monospace; font-size: 13px; }
+  .stat { display:flex; align-items:center; gap:6px; }
+  .swatch { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .swatch.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .swatch.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .swatch.gray { background: var(--gray); }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+  }
+
+  .control-group { display:flex; align-items:center; gap: 7px; }
+  .control-group label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.6px; }
+
+  input[type=number] {
+    width: 50px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  input[type=number]:focus { outline: 1px solid var(--gold-dim); }
+
+  button {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 12.5px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel-raised);
+    color: var(--text);
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  button:hover { border-color: var(--gold-dim); color: var(--gold); }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  button.primary { background: linear-gradient(180deg, #3a4156, #2a3040); border-color: var(--gold-dim); color: var(--gold); }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  #pauseBtn.paused { border-color: var(--red); color: var(--red); }
+  #pipBtn.active { border-color: var(--gold); color: var(--gold); background: linear-gradient(180deg, #3a4156, #2a3040); }
+
+  .preset-group { gap: 5px; }
+  .preset-btn {
+    width: 32px;
+    padding: 6px 0;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .preset-btn.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: linear-gradient(180deg, #3a4156, #2a3040);
+  }
+
+  .grid-shell {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--panel);
+    padding: 12px;
+    resize: both;
+    overflow: auto;
+    min-width: 320px;
+    min-height: 200px;
+  }
+
+  #grid {
+    display: grid;
+    gap: 7px;
+    height: 100%;
+  }
+
+  .cell {
+    position: relative;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 5px 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 58px;
+    cursor: pointer;
+    transition: box-shadow 0.3s, border-color 0.3s, background 0.3s;
+  }
+
+  .cell.unassigned { border-style: dashed; opacity: 0.65; }
+  .cell.following {
+    border-color: var(--green-dark);
+    background: radial-gradient(circle at 50% 20%, rgba(46,204,113,0.14), var(--panel-raised) 70%);
+    box-shadow: inset 0 0 0 1px rgba(46,204,113,0.15);
+  }
+  .cell.broken {
+    border-color: var(--red-dark);
+    background: radial-gradient(circle at 50% 20%, rgba(230,57,70,0.18), var(--panel-raised) 70%);
+    box-shadow: inset 0 0 0 1px rgba(230,57,70,0.2);
+  }
+
+  .cell.just-changed { animation: flare 1.4s ease-out; }
+  @keyframes flare {
+    0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.55); }
+    100% { box-shadow: 0 0 0 14px rgba(255,255,255,0); }
+  }
+
+  .box-number {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.4px;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gray);
+    margin: 1px 0;
+  }
+  .cell.following .status-dot { background: var(--green); box-shadow: 0 0 9px var(--green); }
+  .cell.broken .status-dot { background: var(--red); box-shadow: 0 0 9px var(--red); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.45; } }
+
+  .file-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .event-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    color: var(--red);
+    height: 10px;
+  }
+
+  .assign-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 17px;
+    height: 17px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-dim);
+    font-size: 9.5px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .cell:hover .assign-btn { opacity: 1; }
+  .assign-btn:hover { color: var(--gold); border-color: var(--gold-dim); }
+
+  .hint {
+    font-size: 9.5px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 1px;
+    line-height: 1.2;
+  }
+
+  .footer-note {
+    margin-top: 14px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .unsupported {
+    background: var(--panel);
+    border: 1px solid var(--red-dark);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+
+  /* ---- Compact / Picture-in-Picture mode ---- */
+  body.pip-body {
+    padding: 0;
+    margin: 0;
+    background: #14171c;
+  }
+  body.pip-body .grid-shell {
+    border: none;
+    border-radius: 0;
+    padding: 2px;
+    resize: none;
+    min-width: 0;
+    min-height: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+  body.pip-body #grid { gap: 4px; }
+  body.pip-body .cell { min-height: 0; padding: 3px 2px; border-radius: 5px; }
+  body.pip-body .file-name,
+  body.pip-body .hint,
+  body.pip-body .assign-btn { display: none; }
+  body.pip-body .box-number { font-size: 9px; }
+  body.pip-body .status-dot { width: 8px; height: 8px; }
+  body.pip-body .event-time { font-size: 7px; }
+
+  .pip-header {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  body.pip-body .pip-header { display: flex; }
+  .pip-header button {
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+<a href="../index.html" style="position:fixed;top:8px;right:10px;z-index:9999;font:12px/1.4 'Segoe UI',sans-serif;color:#8b93a7;text-decoration:none;background:rgba(20,22,28,.75);border:1px solid #333a4d;border-radius:6px;padding:3px 9px;" onmouseover="this.style.color='#e8a33d'" onmouseout="this.style.color='#8b93a7'">&#8962; Hub</a>
+<div class="wrap" id="mainWrap">
+
+  <header>
+    <h1>Box Watch<span>Auto-follow monitor for your EverQuest log files</span></h1>
+    <div class="stats">
+      <div class="stat"><span class="swatch green"></span><span id="countFollowing">0</span> following</div>
+      <div class="stat"><span class="swatch red"></span><span id="countBroken">0</span> dropped</div>
+      <div class="stat"><span class="swatch gray"></span><span id="countUnassigned">0</span> unassigned</div>
+    </div>
+  </header>
+
+  <div id="unsupportedNotice" class="unsupported" style="display:none;">
+    This tool reads local log files directly, which needs the File System Access API — supported in Chrome and Edge on desktop. Open this file in one of those browsers to use it.
+  </div>
+
+  <div id="reconnectBanner" class="unsupported" style="display:none; border-color: var(--gold-dim);">
+    <span id="reconnectText"></span>
+    <button id="reconnectBtn" style="margin-left:10px;">Reconnect files</button>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label for="rowsInput">Rows</label>
+      <input type="number" id="rowsInput" min="1" max="12" value="4">
+    </div>
+    <div class="control-group">
+      <label for="colsInput">Columns</label>
+      <input type="number" id="colsInput" min="1" max="12" value="6">
+    </div>
+    <div class="control-group">
+      <label for="pollInput">Poll (sec)</label>
+      <input type="number" id="pollInput" min="1" max="60" value="2">
+    </div>
+    <div class="control-group preset-group">
+      <label>Boxes</label>
+      <button class="preset-btn" data-rows="1" data-cols="6">6</button>
+      <button class="preset-btn" data-rows="2" data-cols="6">12</button>
+      <button class="preset-btn" data-rows="3" data-cols="6">18</button>
+      <button class="preset-btn active" data-rows="4" data-cols="6">24</button>
+    </div>
+    <div class="control-group">
+      <label for="profileInput">Profile</label>
+      <input type="text" id="profileInput" placeholder="profile name" value="default" style="width:110px;">
+    </div>
+    <button id="saveProfileBtn">Save profile</button>
+    <button id="loadProfileBtn">Load profile</button>
+    <button id="deleteProfileBtn" class="danger">Delete profile</button>
+    <div class="control-group">
+      <label for="soundToggle">Alert sound</label>
+      <input type="checkbox" id="soundToggle">
+    </div>
+    <button id="uploadSoundBtn">Upload sound</button>
+    <input type="file" id="soundFileInput" accept="audio/*" style="display:none;">
+    <button id="useDefaultSoundBtn">Use default</button>
+    <button id="testSoundBtn">Test sound</button>
+    <span id="soundLabel" style="font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--text-dim);">default chime</span>
+    <div class="control-group">
+      <label for="volumeSlider">Volume</label>
+      <input type="range" id="volumeSlider" min="0" max="100" value="70" style="width:80px;">
+      <span id="volumeValue" style="font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--text-dim); width:30px; display:inline-block; text-align:right;">70%</span>
+    </div>
+    <button id="pipBtn" class="primary">Pop out — always on top</button>
+    <button id="pauseBtn">Pause watching</button>
+    <button id="resetAllBtn">Acknowledge all</button>
+    <button id="clearAllBtn" class="danger">Clear all files</button>
+  </div>
+
+  <div id="gridHome">
+    <div class="grid-shell" id="gridShell">
+      <div class="pip-header">
+        <span id="pipStats">0/0</span>
+        <button id="pipReturnBtn">Return to window</button>
+      </div>
+      <div id="grid"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footerNote">
+    Click an empty box to assign its log file. A box turns red the moment its log contains <strong>"You are no longer auto-following"</strong>, and turns green again automatically when the log contains <strong>"You will now auto-follow"</strong>. If your follow command doesn't log that second phrase, you can also click a red box to acknowledge it back to green manually. Hover a box for the file icon to reassign or clear it. Use <strong>Pop out</strong> to float a compact, always-on-top copy of the grid over EverQuest — drag its edge to resize, and it keeps reading your log files live as long as this tab stays open. Check <strong>Alert sound</strong> to get a chime whenever a box drops follow — use the built-in default or upload your own clip with <strong>Upload sound</strong>, and preview it any time with <strong>Test sound</strong>. Use <strong>Save profile</strong> to remember your current file assignments, layout, and sound choice under a name, and <strong>Load profile</strong> to restore them later — the browser may ask you to re-confirm file access once per session, which is a security requirement and not something this tool can skip.
+  </div>
+
+</div>
+
+<script>
+const FOLLOW_LOST_PHRASE = "You are no longer auto-following";
+const FOLLOW_RESUMED_PHRASE = "You will now auto-follow";
+
+let rows = 4, cols = 6;
+let boxes = []; // { handle, fileName, lastSize, status, eventTime, justChanged }
+let pollHandle = null;
+let paused = false;
+let pipWindow = null;
+
+const gridEl = document.getElementById('grid');
+const gridShellEl = document.getElementById('gridShell');
+const gridHomeEl = document.getElementById('gridHome');
+const rowsInput = document.getElementById('rowsInput');
+const colsInput = document.getElementById('colsInput');
+const pollInput = document.getElementById('pollInput');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetAllBtn = document.getElementById('resetAllBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const pipBtn = document.getElementById('pipBtn');
+const pipReturnBtn = document.getElementById('pipReturnBtn');
+const profileInput = document.getElementById('profileInput');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
+const loadProfileBtn = document.getElementById('loadProfileBtn');
+const deleteProfileBtn = document.getElementById('deleteProfileBtn');
+const reconnectBanner = document.getElementById('reconnectBanner');
+const reconnectText = document.getElementById('reconnectText');
+const reconnectBtn = document.getElementById('reconnectBtn');
+const soundToggle = document.getElementById('soundToggle');
+const uploadSoundBtn = document.getElementById('uploadSoundBtn');
+const soundFileInput = document.getElementById('soundFileInput');
+const useDefaultSoundBtn = document.getElementById('useDefaultSoundBtn');
+const testSoundBtn = document.getElementById('testSoundBtn');
+const soundLabel = document.getElementById('soundLabel');
+const volumeSlider = document.getElementById('volumeSlider');
+const volumeValue = document.getElementById('volumeValue');
+let pendingReconnect = [];
+let soundEnabled = false;
+let customSoundDataUrl = null;
+let customSoundName = null;
+let sharedAudioCtx = null;
+
+// ---- Profile persistence (IndexedDB stores the actual file handles) ----
+const DB_NAME = 'BoxWatchDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'profiles';
+let dbPromise = null;
+
+function openDB() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'name' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+
+async function dbPut(record) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(record);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbGet(name) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).get(name);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbDelete(name) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(name);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function saveProfile() {
+  const name = (profileInput.value || '').trim();
+  if (!name) { alert('Enter a profile name first.'); return; }
+  const record = {
+    name,
+    rows, cols,
+    poll: parseInt(pollInput.value, 10) || 2,
+    soundEnabled,
+    volume: parseInt(volumeSlider.value, 10),
+    customSoundDataUrl,
+    customSoundName,
+    boxes: boxes.map((b, idx) => b.handle ? { idx, handle: b.handle, fileName: b.fileName } : null).filter(Boolean)
+  };
+  try {
+    await dbPut(record);
+    localStorage.setItem('boxwatch-last-profile', name);
+    const original = saveProfileBtn.textContent;
+    saveProfileBtn.textContent = 'Saved ✓';
+    setTimeout(() => { saveProfileBtn.textContent = original; }, 1200);
+  } catch (err) {
+    alert('Could not save profile: ' + err.message);
+  }
+}
+
+function updateReconnectBanner() {
+  if (pendingReconnect.length === 0) {
+    reconnectBanner.style.display = 'none';
+    return;
+  }
+  reconnectBanner.style.display = 'block';
+  reconnectText.textContent = `${pendingReconnect.length} saved log file${pendingReconnect.length > 1 ? 's' : ''} need permission re-confirmed before they'll resume watching.`;
+}
+
+async function loadProfile(name, opts = {}) {
+  const silent = !!opts.silent;
+  let record;
+  try {
+    record = await dbGet(name);
+  } catch (err) {
+    if (!silent) alert('Could not read profile: ' + err.message);
+    return;
+  }
+  if (!record) {
+    if (!silent) alert(`No saved profile named "${name}".`);
+    return;
+  }
+
+  rows = record.rows || rows;
+  cols = record.cols || cols;
+  rowsInput.value = rows;
+  colsInput.value = cols;
+  if (record.poll) pollInput.value = record.poll;
+  soundEnabled = !!record.soundEnabled;
+  soundToggle.checked = soundEnabled;
+  if (typeof record.volume === 'number') {
+    volumeSlider.value = record.volume;
+    volumeValue.textContent = `${record.volume}%`;
+  }
+  customSoundDataUrl = record.customSoundDataUrl || null;
+  customSoundName = record.customSoundName || null;
+  updateSoundLabel();
+  initBoxes();
+  syncPresetActiveState();
+
+  pendingReconnect = [];
+  for (const entry of record.boxes) {
+    const { idx, handle, fileName } = entry;
+    if (idx >= boxes.length) continue;
+    let granted = false;
+    try {
+      granted = (await handle.queryPermission({ mode: 'read' })) === 'granted';
+    } catch (err) {
+      granted = false;
+    }
+    if (!granted && !silent) {
+      try {
+        granted = (await handle.requestPermission({ mode: 'read' })) === 'granted';
+      } catch (err) {
+        granted = false;
+      }
+    }
+    if (granted) {
+      boxes[idx] = { handle, fileName, lastSize: undefined, status: 'following', eventTime: null, justChanged: false };
+    } else {
+      boxes[idx] = { handle, fileName, lastSize: undefined, status: 'unassigned', eventTime: null, justChanged: false };
+      pendingReconnect.push(idx);
+    }
+  }
+
+  renderGrid();
+  updateReconnectBanner();
+  startPolling();
+}
+
+saveProfileBtn.addEventListener('click', saveProfile);
+loadProfileBtn.addEventListener('click', () => loadProfile(profileInput.value.trim(), { silent: false }));
+deleteProfileBtn.addEventListener('click', async () => {
+  const name = profileInput.value.trim();
+  if (!name) return;
+  if (!confirm(`Delete saved profile "${name}"?`)) return;
+  await dbDelete(name);
+  if (localStorage.getItem('boxwatch-last-profile') === name) {
+    localStorage.removeItem('boxwatch-last-profile');
+  }
+});
+reconnectBtn.addEventListener('click', () => {
+  loadProfile(profileInput.value.trim(), { silent: false });
+});
+
+// ---- Alert sound ----
+function getVolume() {
+  const v = parseInt(volumeSlider.value, 10);
+  return Math.max(0, Math.min(100, isNaN(v) ? 70 : v)) / 100;
+}
+
+function playDefaultPing() {
+  try {
+    if (!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    const vol = getVolume();
+    if (vol <= 0) return;
+
+    // Fundamental tone — soft sine, gentle attack, slow decay
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.value = 1318.5; // E6
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.32 * vol, now + 0.02);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.65);
+
+    // Quiet octave overtone for a touch of "bell" shimmer, fades faster
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.value = 1318.5 * 2;
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.09 * vol, now + 0.015);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now);
+    osc2.stop(now + 0.32);
+  } catch (err) {
+    // audio context unavailable — fail silently
+  }
+}
+
+function playAlertSound() {
+  const vol = getVolume();
+  if (vol <= 0) return;
+  if (customSoundDataUrl) {
+    try {
+      const audio = new Audio(customSoundDataUrl);
+      audio.volume = vol;
+      audio.play().catch(() => {});
+    } catch (err) {
+      playDefaultPing();
+    }
+  } else {
+    playDefaultPing();
+  }
+}
+
+volumeSlider.addEventListener('input', () => {
+  volumeValue.textContent = `${volumeSlider.value}%`;
+});
+
+function updateSoundLabel() {
+  soundLabel.textContent = customSoundName ? customSoundName : 'default chime';
+}
+
+soundToggle.addEventListener('change', () => { soundEnabled = soundToggle.checked; });
+
+uploadSoundBtn.addEventListener('click', () => soundFileInput.click());
+
+soundFileInput.addEventListener('change', () => {
+  const file = soundFileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    customSoundDataUrl = reader.result;
+    customSoundName = file.name;
+    updateSoundLabel();
+  };
+  reader.onerror = () => alert('Could not read that sound file.');
+  reader.readAsDataURL(file);
+  soundFileInput.value = '';
+});
+
+useDefaultSoundBtn.addEventListener('click', () => {
+  customSoundDataUrl = null;
+  customSoundName = null;
+  updateSoundLabel();
+});
+
+testSoundBtn.addEventListener('click', () => playAlertSound());
+
+function fsApiSupported() {
+  return typeof window.showOpenFilePicker === 'function';
+}
+
+function pipApiSupported() {
+  return 'documentPictureInPicture' in window;
+}
+
+function initBoxes() {
+  const total = rows * cols;
+  const next = [];
+  for (let i = 0; i < total; i++) {
+    next.push(boxes[i] || { handle: null, fileName: null, lastSize: undefined, status: 'unassigned', eventTime: null, justChanged: false });
+  }
+  boxes = next;
+}
+
+function renderGrid() {
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, minmax(46px, 1fr))`;
+  gridEl.style.gridTemplateRows = `repeat(${rows}, minmax(50px, 1fr))`;
+  gridEl.innerHTML = '';
+
+  boxes.forEach((box, idx) => {
+    const cell = document.createElement('div');
+    cell.className = `cell ${box.status}` + (box.justChanged ? ' just-changed' : '');
+    cell.dataset.idx = idx;
+
+    const assignBtn = document.createElement('button');
+    assignBtn.className = 'assign-btn';
+    assignBtn.title = box.fileName ? 'Reassign log file' : 'Assign log file';
+    assignBtn.textContent = '📁';
+    assignBtn.addEventListener('click', (e) => { e.stopPropagation(); assignFile(idx); });
+
+    const num = document.createElement('div');
+    num.className = 'box-number';
+    num.textContent = `${idx + 1}`;
+
+    const dot = document.createElement('div');
+    dot.className = 'status-dot';
+
+    const fname = document.createElement('div');
+    fname.className = 'file-name';
+    fname.textContent = box.fileName || 'no file assigned';
+
+    const evt = document.createElement('div');
+    evt.className = 'event-time';
+    evt.textContent = box.status === 'broken' && box.eventTime ? `lost @ ${box.eventTime}` : '';
+
+    cell.appendChild(assignBtn);
+    cell.appendChild(num);
+    cell.appendChild(dot);
+    cell.appendChild(fname);
+    cell.appendChild(evt);
+
+    if (!box.fileName) {
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = 'click to assign';
+      cell.appendChild(hint);
+    }
+
+    cell.addEventListener('click', () => {
+      if (!box.fileName) {
+        assignFile(idx);
+      } else if (box.status === 'broken') {
+        acknowledge(idx);
+      }
+    });
+
+    gridEl.appendChild(cell);
+  });
+
+  updateStats();
+}
+
+async function assignFile(idx) {
+  if (!fsApiSupported()) return;
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'Log files', accept: { 'text/plain': ['.txt', '.log'] } }],
+      excludeAcceptAllOption: false,
+      multiple: false
+    });
+    const file = await handle.getFile();
+    boxes[idx] = {
+      handle,
+      fileName: file.name,
+      lastSize: file.size,
+      status: 'following',
+      eventTime: null,
+      justChanged: false
+    };
+    renderGrid();
+  } catch (err) {
+    // user cancelled the picker — no-op
+  }
+}
+
+function acknowledge(idx) {
+  boxes[idx].status = 'following';
+  boxes[idx].eventTime = null;
+  flashChange(idx);
+  renderGrid();
+}
+
+function clearBox(idx) {
+  boxes[idx] = { handle: null, fileName: null, lastSize: undefined, status: 'unassigned', eventTime: null, justChanged: false };
+  renderGrid();
+}
+
+function flashChange(idx) {
+  boxes[idx].justChanged = true;
+  renderGrid();
+  setTimeout(() => {
+    if (boxes[idx]) { boxes[idx].justChanged = false; }
+  }, 1400);
+}
+
+function extractTimestamp(line) {
+  const m = line.match(/\[(.*?)\]/);
+  if (m) {
+    const parts = m[1].split(' ').filter(Boolean);
+    const timePart = parts.find(p => /^\d{1,2}:\d{2}:\d{2}$/.test(p));
+    return timePart || m[1];
+  }
+  return new Date().toLocaleTimeString();
+}
+
+async function pollAll() {
+  if (paused) return;
+  let droppedThisCycle = false;
+  for (let idx = 0; idx < boxes.length; idx++) {
+    const box = boxes[idx];
+    if (!box.handle) continue;
+    try {
+      const file = await box.handle.getFile();
+      if (box.lastSize === undefined) {
+        box.lastSize = file.size;
+        continue;
+      }
+      if (file.size > box.lastSize) {
+        const slice = file.slice(box.lastSize, file.size);
+        const text = await slice.text();
+        box.lastSize = file.size;
+
+        const lostIdx = text.lastIndexOf(FOLLOW_LOST_PHRASE);
+        const resumedIdx = text.lastIndexOf(FOLLOW_RESUMED_PHRASE);
+
+        if (lostIdx !== -1 || resumedIdx !== -1) {
+          const newStatus = resumedIdx > lostIdx ? 'following' : 'broken';
+          const eventIdx = newStatus === 'following' ? resumedIdx : lostIdx;
+          const lineStart = text.lastIndexOf('\n', eventIdx) + 1;
+          const lineEndRaw = text.indexOf('\n', eventIdx);
+          const lineEnd = lineEndRaw === -1 ? text.length : lineEndRaw;
+          const line = text.slice(lineStart, lineEnd);
+          const ts = extractTimestamp(line);
+
+          if (newStatus !== box.status) {
+            box.status = newStatus;
+            box.eventTime = newStatus === 'broken' ? ts : null;
+            flashChange(idx);
+            if (newStatus === 'broken') droppedThisCycle = true;
+          } else if (newStatus === 'broken') {
+            box.eventTime = ts;
+          }
+        }
+      } else if (file.size < box.lastSize) {
+        box.lastSize = file.size;
+      }
+    } catch (err) {
+      // file may have been moved/deleted; leave status as-is
+    }
+  }
+  renderGrid();
+  if (droppedThisCycle && soundEnabled) playAlertSound();
+}
+
+function startPolling() {
+  if (pollHandle) clearInterval(pollHandle);
+  const seconds = Math.max(1, parseInt(pollInput.value, 10) || 2);
+  pollHandle = setInterval(pollAll, seconds * 1000);
+}
+
+const presetBtns = document.querySelectorAll('.preset-btn');
+
+function syncPresetActiveState() {
+  presetBtns.forEach(btn => {
+    const match = parseInt(btn.dataset.rows, 10) === rows && parseInt(btn.dataset.cols, 10) === cols;
+    btn.classList.toggle('active', match);
+  });
+}
+
+presetBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    rows = parseInt(btn.dataset.rows, 10);
+    cols = parseInt(btn.dataset.cols, 10);
+    rowsInput.value = rows;
+    colsInput.value = cols;
+    initBoxes();
+    renderGrid();
+    syncPresetActiveState();
+  });
+});
+
+rowsInput.addEventListener('change', () => {
+  rows = Math.max(1, Math.min(12, parseInt(rowsInput.value, 10) || 4));
+  initBoxes();
+  renderGrid();
+  syncPresetActiveState();
+});
+
+colsInput.addEventListener('change', () => {
+  cols = Math.max(1, Math.min(12, parseInt(colsInput.value, 10) || 6));
+  initBoxes();
+  renderGrid();
+  syncPresetActiveState();
+});
+
+pollInput.addEventListener('change', startPolling);
+
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume watching' : 'Pause watching';
+  pauseBtn.classList.toggle('paused', paused);
+});
+
+resetAllBtn.addEventListener('click', () => {
+  boxes.forEach((box) => {
+    if (box.fileName && box.status === 'broken') {
+      box.status = 'following';
+      box.eventTime = null;
+    }
+  });
+  renderGrid();
+});
+
+clearAllBtn.addEventListener('click', () => {
+  boxes.forEach((box, idx) => clearBox(idx));
+});
+
+function updateStats() {
+  const following = boxes.filter(b => b.status === 'following').length;
+  const broken = boxes.filter(b => b.status === 'broken').length;
+  const unassigned = boxes.filter(b => b.status === 'unassigned').length;
+  document.getElementById('countFollowing').textContent = following;
+  document.getElementById('countBroken').textContent = broken;
+  document.getElementById('countUnassigned').textContent = unassigned;
+  const pipStatsEl = document.getElementById('pipStats');
+  if (pipStatsEl) pipStatsEl.textContent = `${following}/${boxes.length} following · ${broken} dropped`;
+}
+
+async function openPiP() {
+  if (!pipApiSupported()) {
+    alert('Always-on-top pop out needs Chrome or Edge 116+.');
+    return;
+  }
+  if (pipWindow) return;
+
+  pipWindow = await documentPictureInPicture.requestWindow({
+    width: Math.max(220, cols * 64),
+    height: Math.max(160, rows * 60 + 30)
+  });
+
+  [...document.styleSheets].forEach(styleSheet => {
+    try {
+      const cssText = [...styleSheet.cssRules].map(r => r.cssText).join('\n');
+      const style = document.createElement('style');
+      style.textContent = cssText;
+      pipWindow.document.head.appendChild(style);
+    } catch (e) {
+      if (styleSheet.href) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = styleSheet.href;
+        pipWindow.document.head.appendChild(link);
+      }
+    }
+  });
+
+  pipWindow.document.body.classList.add('pip-body');
+  pipWindow.document.body.appendChild(gridShellEl);
+
+  pipBtn.classList.add('active');
+  pipBtn.textContent = 'Popped out';
+
+  pipWindow.addEventListener('pagehide', () => {
+    gridHomeEl.appendChild(gridShellEl);
+    pipWindow = null;
+    pipBtn.classList.remove('active');
+    pipBtn.textContent = 'Pop out — always on top';
+    renderGrid();
+  });
+
+  renderGrid();
+}
+
+pipBtn.addEventListener('click', () => {
+  if (pipWindow) {
+    pipWindow.close();
+  } else {
+    openPiP();
+  }
+});
+
+pipReturnBtn.addEventListener('click', () => {
+  if (pipWindow) pipWindow.close();
+});
+
+if (!fsApiSupported()) {
+  document.getElementById('unsupportedNotice').style.display = 'block';
+}
+initBoxes();
+renderGrid();
+startPolling();
+
+(async () => {
+  if (!fsApiSupported()) return;
+  const lastProfile = localStorage.getItem('boxwatch-last-profile');
+  if (lastProfile) {
+    profileInput.value = lastProfile;
+    await loadProfile(lastProfile, { silent: true });
+  }
+})();
+</script>
+</body>
+</html>

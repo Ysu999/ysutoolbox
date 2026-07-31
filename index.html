@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ysu Toolbox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#14161c; --panel:rgba(29,33,43,.88); --panel2:#242938; --border:#333a4d;
+    --text:#dfe4ee; --dim:#8b93a7; --accent:#e8a33d; --glow:#7fd4f5;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;font:15px/1.5 "Segoe UI",system-ui,sans-serif;color:var(--text);
+    background:var(--bg) url('pok.png') no-repeat center top;
+    background-size:cover;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .veil{
+    min-height:100vh;width:100%;display:flex;flex-direction:column;align-items:center;
+    background:linear-gradient(180deg, rgba(20,22,28,.25) 0%, rgba(20,22,28,.45) 45%, rgba(20,22,28,.92) 100%);
+    padding:0 20px 40px;
+  }
+  header{text-align:center;margin-top:9vh}
+  h1{
+    font-size:clamp(28px,5vw,46px);margin:0;letter-spacing:.12em;text-transform:uppercase;
+    color:#f2e7c9;text-shadow:0 2px 18px rgba(0,0,0,.8), 0 0 42px rgba(127,212,245,.35);
+    font-weight:600;
+  }
+  .tag{color:#c9d4ea;text-shadow:0 1px 8px rgba(0,0,0,.9);margin-top:8px;font-size:15px;letter-spacing:.04em}
+  .rule{width:180px;height:1px;background:linear-gradient(90deg,transparent,#f2e7c9,transparent);margin:18px auto 0;opacity:.7}
+  .cards{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px;
+    width:100%;max-width:980px;margin-top:auto;padding-top:9vh;
+  }
+  a.card{
+    display:block;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:18px;text-decoration:none;color:var(--text);
+    backdrop-filter:blur(3px);transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+  a.card:hover{
+    transform:translateY(-3px);border-color:var(--accent);
+    box-shadow:0 6px 24px rgba(0,0,0,.5), 0 0 18px rgba(232,163,61,.15);
+  }
+  .card h2{margin:0 0 6px;font-size:17px;color:var(--accent)}
+  .card p{margin:0;color:var(--dim);font-size:13.5px}
+  footer{margin-top:26px;color:#6a7288;font-size:12px;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+</style>
+</head>
+<body>
+<div class="veil">
+  <header>
+    <h1>Ysu Toolbox</h1>
+    <div class="rule"></div>
+    <div class="tag">Utilities for the box crew</div>
+  </header>
+
+  <!-- To add a new tool later: copy one <a class="card"> block, point href at the new
+       file in tools/, and set the title + description. That's it. -->
+  <nav class="cards">
+    <a class="card" href="tools/spell-tracker.html">
+      <h2>Spell Tracker</h2>
+      <p>All 16 classes, 3,325 spells, songs &amp; tomes. Load MissingSpells exports per character,
+         filter by class &amp; expansion, see what you still need and where it drops.</p>
+    </a>
+    <a class="card" href="tools/box-follower.html">
+      <h2>Box Watch</h2>
+      <p>Follow monitor for the box crew &mdash; keep an eye on who's keeping up and who's stuck
+         on a rock in the Karanas.</p>
+    </a>
+    <a class="card" href="tools/inventory.html">
+      <h2>Inventory Tracker</h2>
+      <p>Frostreaver box crew inventory &mdash; track bags, bank slots, and where that one
+         Words of Crippling Force actually went.</p>
+    </a>
+    <a class="card" href="tools/eq-link-watcher.html">
+      <h2>EQ Link Watcher</h2>
+      <p>Live-tails an EverQuest log file and pulls out clickable links as they're posted in chat.</p>
+    </a>
+    <a class="card" href="tools/eq-random-checker.html">
+      <h2>Random Checker</h2>
+      <p>Watches for /random rolls in your log and tells you who won when you cut it off.</p>
+    </a>
+    <a class="card" href="https://discord.com/invite/gjUuv23xXC" target="_blank" rel="noopener">
+      <h2>Ysu Vaniki Claims</h2>
+      <p>Food/Water/Mount/Magus/WW Port - 1Kr for 6 people!</p>
+    </a>
+  </nav>
+
+  <footer>Not affiliated with Daybreak Games</footer>
+</div>
+</body>
+</html>

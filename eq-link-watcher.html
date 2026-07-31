@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EQ Link Watcher — Frostreaver Toolbox</title>
+<style>
+  :root{
+    --bg:#0c0e14;
+    --panel:#151822;
+    --panel-2:#1b1f2c;
+    --border:#2a2f3f;
+    --text:#e6e8ef;
+    --dim:#8b91a5;
+    --accent:#7c5cff;
+    --accent-2:#ff8a3d;
+    --link:#5cc8ff;
+    --discord:#5865f2;
+    --ok:#4caf7d;
+    --warn:#e0574a;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 20% 0%, #1a1d2b 0%, transparent 40%),
+      radial-gradient(circle at 80% 100%, #1a1420 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:24px;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    flex-wrap:wrap;gap:12px;
+    margin-bottom:20px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+  h1{
+    font-size:20px;
+    margin:0;
+    letter-spacing:0.5px;
+    display:flex;align-items:center;gap:10px;
+  }
+  h1 .tag{
+    font-size:11px;
+    font-weight:600;
+    color:var(--accent-2);
+    border:1px solid var(--accent-2);
+    padding:2px 8px;
+    border-radius:20px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .sub{color:var(--dim);font-size:13px;margin-top:4px;}
+
+  .controls{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:18px;
+  }
+  button{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    padding:9px 16px;
+    border-radius:7px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:filter .15s ease, transform .05s ease;
+  }
+  button:hover{filter:brightness(1.12);}
+  button:active{transform:scale(0.98);}
+  button.secondary{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+  }
+  button:disabled{
+    opacity:0.45;
+    cursor:not-allowed;
+  }
+  .status-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--dim);
+    display:inline-block;
+    margin-right:6px;
+    box-shadow:0 0 0 0 rgba(76,175,125,0.6);
+  }
+  .status-dot.live{
+    background:var(--ok);
+    animation:pulse 1.8s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(76,175,125,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(76,175,125,0);}
+    100%{box-shadow:0 0 0 0 rgba(76,175,125,0);}
+  }
+  .status-text{font-size:12.5px;color:var(--dim);}
+  .filename{
+    font-size:12.5px;color:var(--dim);
+    margin-left:auto;
+    max-width:320px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+
+  .filter-row{
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+  .filter-row input[type=text]{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:7px;
+    font-size:13px;
+    flex:1;
+    min-width:180px;
+  }
+  .chip{
+    font-size:11.5px;
+    padding:5px 10px;
+    border-radius:20px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--dim);
+    cursor:pointer;
+    user-select:none;
+  }
+  .chip.active{
+    background:var(--accent);
+    color:#fff;
+    border-color:var(--accent);
+  }
+
+  .feed{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .feed-header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    font-size:12px;
+    color:var(--dim);
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .feed-body{
+    max-height:60vh;
+    overflow-y:auto;
+  }
+  .empty{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--dim);
+    font-size:13.5px;
+    line-height:1.6;
+  }
+  .row{
+    display:flex;
+    gap:12px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--border);
+    align-items:flex-start;
+  }
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--panel-2);}
+  .row .kind{
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    padding:3px 7px;
+    border-radius:5px;
+    white-space:nowrap;
+    margin-top:2px;
+  }
+  .kind.url{background:rgba(92,200,255,0.15);color:var(--link);}
+  .kind.discord{background:rgba(88,101,242,0.18);color:#8b95ff;}
+  .row-main{flex:1;min-width:0;}
+  .row-main a{
+    color:var(--text);
+    font-size:13.5px;
+    font-weight:600;
+    text-decoration:none;
+    word-break:break-all;
+  }
+  .row-main a:hover{color:var(--accent-2);text-decoration:underline;}
+  .row-meta{
+    font-size:11.5px;
+    color:var(--dim);
+    margin-top:4px;
+    display:flex;gap:10px;flex-wrap:wrap;
+  }
+  .row-meta .who{color:var(--accent-2);}
+  .row-line{
+    font-size:11px;
+    color:var(--dim);
+    margin-top:4px;
+    font-family:Consolas, monospace;
+    opacity:0.7;
+    word-break:break-all;
+  }
+  .copy-btn{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--dim);
+    font-size:10.5px;
+    padding:4px 8px;
+    border-radius:5px;
+    cursor:pointer;
+    margin-top:2px;
+  }
+  .copy-btn:hover{color:var(--text);border-color:var(--dim);}
+  .footer-note{
+    margin-top:14px;
+    font-size:11.5px;
+    color:var(--dim);
+    line-height:1.6;
+  }
+  .footer-note code{
+    background:var(--panel-2);
+    padding:1px 6px;
+    border-radius:4px;
+    border:1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>EQ Link Watcher <span class="tag">Frostreaver Toolbox</span></h1>
+      <div class="sub">Live-tails an EverQuest log file and pulls out clickable links as they're posted in chat.</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button id="pickBtn">Choose Log File…</button>
+    <button id="stopBtn" class="secondary" disabled>Stop Watching</button>
+    <button id="clearBtn" class="secondary">Clear List</button>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-text" id="statusText">Not watching</span>
+    <span class="filename" id="fileName"></span>
+  </div>
+
+  <div class="filter-row">
+    <input type="text" id="searchBox" placeholder="Filter by player name or text…">
+    <span class="chip active" data-filter="all">All</span>
+    <span class="chip" data-filter="url">Links only</span>
+    <span class="chip" data-filter="discord">Discord only</span>
+  </div>
+
+  <div class="feed">
+    <div class="feed-header">
+      <span>Detected Links</span>
+      <span id="countLabel">0 found</span>
+    </div>
+    <div class="feed-body" id="feedBody">
+      <div class="empty" id="emptyState">
+        No links yet. Click <strong>Choose Log File…</strong> and select your active EverQuest log<br>
+        (e.g. <code>eqlog_YourCharacter_pq.proj.txt</code>) to start watching.
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Runs entirely in your browser — the log file is never uploaded anywhere. Uses the File System Access API to
+    re-read the file periodically for new lines, so this only works in Chromium-based browsers (Chrome, Edge).
+    Keep this tab open while raiding; new links will appear automatically as guildmates post them in chat.
+  </div>
+</div>
+
+<script>
+(() => {
+  const pickBtn = document.getElementById('pickBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const fileNameEl = document.getElementById('fileName');
+  const feedBody = document.getElementById('feedBody');
+  const emptyState = document.getElementById('emptyState');
+  const countLabel = document.getElementById('countLabel');
+  const searchBox = document.getElementById('searchBox');
+  const chips = document.querySelectorAll('.chip');
+
+  let fileHandle = null;
+  let lastSize = 0;
+  let pollTimer = null;
+  let leftoverPartialLine = '';
+  let items = []; // {kind, url, who, when, rawLine}
+  let activeFilter = 'all';
+  let searchTerm = '';
+
+  const URL_RE = /\b((?:https?:\/\/|www\.)[^\s"'<>\]\)]+)/gi;
+  const DISCORD_RE = /\b((?:discord\.gg|discord(?:app)?\.com\/invite)\/[A-Za-z0-9-]+)/gi;
+
+  // EQ log line format: [Day Mon DD HH:MM:SS YYYY] Rest of line
+  const LOG_LINE_RE = /^\[([A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2} \d{4})\]\s?(.*)$/;
+  // Common chat line: "Name says, 'message'" / "Name tells the guild, 'message'" / "Name tells you, 'message'"
+  const SPEAKER_RE = /^(\S+(?:\s\S+)?)\s(?:says|say|shouts|tells the guild|tells the raid|tells you|tells|auctions|says out of character)[,:]?\s?['"]?(.*)$/i;
+
+  function normalizeUrl(raw) {
+    let u = raw.replace(/[.,;:!?)]+$/,''); // strip trailing punctuation
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    return u;
+  }
+
+  function setStatus(live, text) {
+    statusDot.classList.toggle('live', live);
+    statusText.textContent = text;
+  }
+
+  function addItem(kind, url, who, when, rawLine) {
+    // de-dupe identical url+who within the session
+    const key = kind + '|' + url + '|' + who;
+    if (items.some(i => i._key === key)) return;
+    const item = { kind, url, who, when, rawLine, _key: key };
+    items.unshift(item);
+    render();
+  }
+
+  function render() {
+    const filtered = items.filter(i => {
+      if (activeFilter !== 'all' && i.kind !== activeFilter) return false;
+      if (searchTerm) {
+        const hay = (i.who + ' ' + i.url + ' ' + i.rawLine).toLowerCase();
+        if (!hay.includes(searchTerm.toLowerCase())) return false;
+      }
+      return true;
+    });
+
+    countLabel.textContent = `${filtered.length} found` + (filtered.length !== items.length ? ` (of ${items.length})` : '');
+
+    if (items.length === 0) {
+      emptyState.style.display = '';
+      feedBody.querySelectorAll('.row').forEach(r => r.remove());
+      return;
+    }
+    emptyState.style.display = 'none';
+
+    feedBody.querySelectorAll('.row').forEach(r => r.remove());
+    for (const i of filtered) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `
+        <span class="kind ${i.kind}">${i.kind === 'discord' ? 'Discord' : 'Link'}</span>
+        <div class="row-main">
+          <a href="${i.url}" target="_blank" rel="noopener noreferrer">${i.url}</a>
+          <div class="row-meta">
+            ${i.who ? `<span class="who">${i.who}</span>` : ''}
+            ${i.when ? `<span>${i.when}</span>` : ''}
+            <button class="copy-btn" data-url="${i.url}">Copy</button>
+          </div>
+          <div class="row-line">${i.rawLine}</div>
+        </div>
+      `;
+      feedBody.appendChild(row);
+    }
+    feedBody.querySelectorAll('.copy-btn').forEach(b => {
+      b.addEventListener('click', (e) => {
+        navigator.clipboard.writeText(e.target.dataset.url).then(() => {
+          e.target.textContent = 'Copied!';
+          setTimeout(() => e.target.textContent = 'Copy', 1200);
+        });
+      });
+    });
+  }
+
+  function processNewText(text) {
+    const combined = leftoverPartialLine + text;
+    const lines = combined.split(/\r?\n/);
+    leftoverPartialLine = lines.pop() || ''; // last chunk may be incomplete
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let when = '';
+      let body = line;
+      const m = line.match(LOG_LINE_RE);
+      if (m) { when = m[1]; body = m[2]; }
+
+      let who = '';
+      const sm = body.match(SPEAKER_RE);
+      if (sm) who = sm[1];
+
+      let found = false;
+      let match;
+      DISCORD_RE.lastIndex = 0;
+      while ((match = DISCORD_RE.exec(body)) !== null) {
+        addItem('discord', normalizeUrl(match[1]), who, when, line.trim());
+        found = true;
+      }
+      URL_RE.lastIndex = 0;
+      while ((match = URL_RE.exec(body)) !== null) {
+        const url = normalizeUrl(match[1]);
+        if (url.includes('discord.gg') || url.includes('discord.com/invite')) continue; // already caught above
+        addItem('url', url, who, when, line.trim());
+        found = true;
+      }
+    }
+  }
+
+  async function pollFile() {
+    if (!fileHandle) return;
+    try {
+      const file = await fileHandle.getFile();
+      if (file.size < lastSize) {
+        // file was truncated/rotated (new session) — reset
+        lastSize = 0;
+        leftoverPartialLine = '';
+      }
+      if (file.size > lastSize) {
+        const slice = file.slice(lastSize, file.size);
+        const text = await slice.text();
+        lastSize = file.size;
+        processNewText(text);
+      }
+      setStatus(true, 'Watching — last checked ' + new Date().toLocaleTimeString());
+    } catch (err) {
+      setStatus(false, 'Error reading file: ' + err.message);
+    }
+  }
+
+  pickBtn.addEventListener('click', async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'EQ Log Files', accept: { 'text/plain': ['.txt'] } }],
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      fileHandle = handle;
+      fileNameEl.textContent = handle.name;
+
+      // Start at end of file — only watch NEW lines from this point forward.
+      const file = await fileHandle.getFile();
+      lastSize = file.size;
+      leftoverPartialLine = '';
+
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollFile, 2000);
+      setStatus(true, 'Watching for new lines…');
+      pickBtn.disabled = true;
+      stopBtn.disabled = false;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        setStatus(false, 'Could not open file: ' + err.message);
+      }
+    }
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    fileHandle = null;
+    pickBtn.disabled = false;
+    stopBtn.disabled = true;
+    fileNameEl.textContent = '';
+    setStatus(false, 'Stopped');
+  });
+
+  clearBtn.addEventListener('click', () => {
+    items = [];
+    render();
+  });
+
+  searchBox.addEventListener('input', (e) => {
+    searchTerm = e.target.value;
+    render();
+  });
+
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFilter = chip.dataset.filter;
+      render();
+    });
+  });
+
+  if (!window.showOpenFilePicker) {
+    setStatus(false, 'Unsupported browser — use Chrome or Edge');
+    pickBtn.disabled = true;
+  }
+})();
+</script>
+</body>
+</html>

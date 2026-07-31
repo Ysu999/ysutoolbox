@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Frostreaver Box Crew — Inventory Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #0b0f17;
+    --panel: #131a26;
+    --panel-2: #182233;
+    --line: #25324a;
+    --teal: #4fd8c4;
+    --teal-dim: #2c6f66;
+    --gold: #e8b94a;
+    --gold-dim: #8a6c2c;
+    --text: #dce4f0;
+    --text-dim: #8b9bb4;
+    --danger: #e5707a;
+    --ok: #6fcf97;
+    --mono: 'JetBrains Mono', 'Consolas', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: radial-gradient(ellipse at top, #101826 0%, #070a10 60%);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height:100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap{ max-width: 980px; margin: 0 auto; }
+  header.top{
+    text-align:center;
+    margin-bottom: 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  header.top h1{
+    font-family:'Cinzel', serif;
+    font-weight:700;
+    font-size: 1.9rem;
+    margin: 0 0 6px;
+    letter-spacing: 0.04em;
+    color: #f4ead0;
+    text-shadow: 0 0 18px rgba(79,216,196,0.25);
+  }
+  header.top p{
+    margin:0;
+    color: var(--text-dim);
+    font-size: 0.92rem;
+  }
+  nav.tabs{
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  nav.tabs button{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    padding: 9px 18px;
+    border-radius: 8px;
+    cursor:pointer;
+    font-family:'Cinzel', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    transition: all .15s ease;
+  }
+  nav.tabs button:hover{ color: var(--text); border-color: var(--teal-dim); }
+  nav.tabs button.active{
+    background: linear-gradient(180deg, #1c2a3d, #131a26);
+    color: var(--teal);
+    border-color: var(--teal-dim);
+    box-shadow: 0 0 0 1px rgba(79,216,196,0.15) inset;
+  }
+  section.panel{
+    display:none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px 22px 26px;
+    margin-bottom: 18px;
+  }
+  section.panel.active{ display:block; }
+  h2.section-title{
+    font-family:'Cinzel', serif;
+    color: var(--teal);
+    font-size: 1.05rem;
+    margin: 0 0 4px;
+    letter-spacing:0.03em;
+  }
+  .sub{ color: var(--text-dim); font-size: 0.85rem; margin: 0 0 16px; line-height:1.5; }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  input[type="text"], input[type="number"], select{
+    background: #0e1420;
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  input[type="text"]:focus, select:focus{ outline:none; border-color: var(--teal-dim); }
+  button.btn{
+    background: var(--teal-dim);
+    color:#eafffb;
+    border:none;
+    padding: 9px 16px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:0.85rem;
+    font-weight:600;
+  }
+  button.btn:hover{ background:#37877b; }
+  button.btn.secondary{
+    background:transparent;
+    border:1px solid var(--line);
+    color: var(--text-dim);
+  }
+  button.btn.secondary:hover{ color:var(--text); border-color:#3a4a66; }
+  button.btn.danger{ background: #5c2730; color:#ffd9dc; }
+  button.btn.danger:hover{ background:#7a3540; }
+
+  table{ width:100%; border-collapse: collapse; margin-top: 10px; font-size:0.88rem;}
+  th{ text-align:left; color: var(--gold); font-weight:600; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; padding: 8px 10px; border-bottom: 1px solid var(--line);}
+  td{ padding: 8px 10px; border-bottom: 1px solid #1c2536; vertical-align: middle;}
+  tr:hover td{ background: rgba(79,216,196,0.04); }
+  .muted{ color: var(--text-dim); }
+  .pill{ display:inline-block; padding:2px 9px; border-radius: 20px; font-size:0.72rem; font-weight:600; }
+  .pill.ok{ background: rgba(111,207,151,0.12); color: var(--ok); }
+  .pill.danger{ background: rgba(229,112,122,0.12); color: var(--danger); }
+  .pill.neutral{ background: rgba(139,155,180,0.12); color: var(--text-dim); }
+  .pill.equip{ background: rgba(232,185,74,0.14); color: var(--gold); }
+  .pill.bag{ background: rgba(79,216,196,0.13); color: var(--teal); }
+  .pill.bank{ background: rgba(122,162,247,0.14); color: #7aa2f7; }
+  .pill.unknown{ background: rgba(139,155,180,0.12); color: var(--text-dim); }
+
+  .loc-filters{ display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin-top:12px; }
+  .loc-filters label{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:0.85rem; color:var(--text-dim); cursor:pointer; user-select:none;
+  }
+  .loc-filters input[type="checkbox"]{ accent-color: var(--teal-dim); width:15px; height:15px; cursor:pointer; }
+  .loc-filters label:has(input:checked){ color:var(--text); }
+
+  .char-filters{ margin-top:12px; }
+  .char-filters > summary{
+    font-size:0.8rem; color:var(--text-dim); cursor:pointer; user-select:none;
+    list-style:none; display:flex; align-items:center; gap:6px;
+  }
+  .char-filters > summary::-webkit-details-marker{ display:none; }
+  .char-filters > summary::before{ content:'▸'; font-size:0.7rem; color:var(--teal-dim); }
+  .char-filters[open] > summary::before{ content:'▾'; }
+  .char-filters .char-filter-actions{ margin: 8px 0; display:flex; gap:10px; }
+  .char-filters .char-filter-actions a{ font-size:0.78rem; color:var(--teal); cursor:pointer; text-decoration:underline; }
+  .char-filter-list{ display:flex; flex-wrap:wrap; gap:6px 14px; max-height:180px; overflow-y:auto; padding:2px 2px 4px; }
+  .char-filter-list label{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:0.82rem; color:var(--text-dim); cursor:pointer; user-select:none; white-space:nowrap;
+  }
+  .char-filter-list input[type="checkbox"]{ accent-color: var(--teal-dim); width:14px; height:14px; cursor:pointer; }
+  .char-filter-list label:has(input:checked){ color:var(--text); }
+
+  .drop{
+    border: 1.5px dashed var(--line);
+    border-radius:10px;
+    padding: 28px;
+    text-align:center;
+    color: var(--text-dim);
+    cursor:pointer;
+    transition: border-color .15s;
+  }
+  .drop:hover, .drop.drag{ border-color: var(--teal-dim); color: var(--teal); }
+  .drop input{ display:none; }
+
+  .char-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background: var(--panel-2);
+    border:1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size:0.82rem;
+  }
+  .char-chip .x{ cursor:pointer; color: var(--text-dim); }
+  .char-chip .x:hover{ color: var(--danger); }
+
+  details{ margin-top:6px; }
+  details summary{ cursor:pointer; color: var(--teal); font-size:0.82rem; }
+  details .src-row{ color: var(--text-dim); font-size: 0.8rem; padding: 3px 0 3px 16px; }
+
+  .empty-state{ text-align:center; padding: 40px 10px; color: var(--text-dim); }
+  .empty-state .icon{ font-size: 2rem; margin-bottom: 8px; }
+
+  .stat-grid{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom: 4px;}
+  .stat-box{ background: var(--panel-2); border:1px solid var(--line); border-radius:9px; padding: 10px 16px; min-width:120px;}
+  .stat-box .num{ font-family:'Cinzel',serif; font-size:1.4rem; color: var(--teal); }
+  .stat-box .lbl{ font-size:0.72rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.04em;}
+
+  .sub-head{ font-family:'Cinzel',serif; color:var(--gold); font-size:0.88rem; margin-top:24px; }
+
+  .group-block{ margin-bottom: 20px; padding-bottom: 6px; border-bottom: 1px solid #1c2536; }
+  .group-block:last-child{ border-bottom: none; }
+  .group-block h3{ font-family:'Cinzel',serif; color: var(--gold); font-size:0.92rem; margin: 14px 0 2px; }
+
+  /* EQ-style Sleeper key box grid */
+  .key-grid{
+    display:grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap:6px;
+    margin-top:6px;
+    background:#000;
+    padding:8px;
+    border:1px solid var(--line);
+    border-radius:8px;
+  }
+  @media (max-width: 760px){ .key-grid{ grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  @media (max-width: 460px){ .key-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  .box-tile{
+    display:flex; gap:5px; align-items:stretch;
+    background:#0f0f0f; border:1px solid #2a2a2a; border-radius:3px; padding:4px;
+  }
+  .box-tile.have{ border-color:#2f6f3f; }
+  .box-tile.none{ border-color:#6f2f2f; }
+  .box-tile.full{ border-color:var(--gold); box-shadow:0 0 0 1px rgba(232,185,74,0.45) inset; }
+  .box-pc{
+    display:flex; align-items:center; justify-content:center;
+    width:20px; flex:none;
+    font-family:'JetBrains Mono','Consolas',monospace; font-size:0.58rem; font-weight:700;
+    color:#fff; background:#7a1f1f; border-radius:2px;
+  }
+  .box-tile.have .box-pc, .box-tile.full .box-pc{ background:#1f7a3a; }
+  .box-body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:3px; justify-content:center; }
+  .box-head{ display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
+  .box-name{ font-family:'JetBrains Mono','Consolas',monospace; font-size:0.74rem; font-weight:600; color:#f0f0f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .box-count{ font-family:'JetBrains Mono','Consolas',monospace; font-size:0.72rem; font-weight:700; color:#cfd8e6; flex:none; }
+  .box-tile.full .box-count{ color:var(--gold); }
+  .box-bar{ position:relative; height:12px; background:#222; border:1px solid #000; border-radius:2px; overflow:hidden; }
+  .box-fill{ height:100%; }
+  .box-tile.have .box-fill, .box-tile.full .box-fill{ background:linear-gradient(180deg,#5fe07a,#2faa4e); }
+  .box-tile.none .box-fill{ background:linear-gradient(180deg,#e0625f,#aa2f2f); }
+  .box-bar::after{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background-image: repeating-linear-gradient(90deg, rgba(0,0,0,0.28) 0 1px, transparent 1px 13px);
+  }
+
+  footer.note{ text-align:center; color:#5a6a85; font-size:0.75rem; margin-top: 30px; }
+</style>
+</head>
+<body>
+<a href="../index.html" style="position:fixed;top:8px;right:10px;z-index:9999;font:12px/1.4 'Segoe UI',sans-serif;color:#8b93a7;text-decoration:none;background:rgba(20,22,28,.75);border:1px solid #333a4d;border-radius:6px;padding:3px 9px;" onmouseover="this.style.color='#e8a33d'" onmouseout="this.style.color='#8b93a7'">&#8962; Hub</a>
+<div class="wrap">
+
+  <header class="top">
+    <h1>❄ Frostreaver Box Crew Tracker</h1>
+    <p>Combined inventory search for your 24-box crew</p>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="upload" class="active">Upload</button>
+    <button data-tab="search">Search Inventory</button>
+    <button data-tab="keys">Sleeper Keys</button>
+  </nav>
+
+  <!-- UPLOAD TAB -->
+  <section class="panel active" id="tab-upload">
+    <h2 class="section-title">Import Character Inventories</h2>
+    <p class="sub">Drop in your exported .txt inventory files — one per character. Re-uploading a character's file overwrites that character's data. The file name (up to the first <code>_</code> or <code>-</code>) is used as the character name.</p>
+
+    <label class="drop" id="dropZone">
+      <input type="file" id="fileInput" multiple accept=".txt">
+      <div>📂 Click to choose files, or drag .txt inventory exports here</div>
+    </label>
+
+    <!-- Remember-files controls (shown only when the browser supports it) -->
+    <div class="row" id="fsaRow" style="margin-top:14px; display:none;">
+      <button class="btn" id="pickRememberBtn">📁 Choose &amp; remember files</button>
+      <button class="btn secondary" id="refreshAllBtn">🔄 Refresh all from saved files</button>
+      <span class="muted" id="fsaStatus" style="font-size:0.8rem;"></span>
+    </div>
+
+    <div id="pendingArea" style="margin-top:16px;"></div>
+
+    <div class="stat-grid" style="margin-top:20px;">
+      <div class="stat-box"><div class="num" id="statChars">0</div><div class="lbl">Characters loaded</div></div>
+      <div class="stat-box"><div class="num" id="statItems">0</div><div class="lbl">Unique items</div></div>
+      <div class="stat-box"><div class="num" id="statRemembered">0</div><div class="lbl">Remembered files</div></div>
+    </div>
+
+    <h3 class="sub-head">Loaded Characters</h3>
+    <div id="charRoster" class="row" style="margin-top:8px;"></div>
+
+    <h3 class="sub-head">Remembered Files</h3>
+    <p class="sub" style="margin-bottom:8px;">Files you've chosen with "Choose &amp; remember files" stay linked, so you can re-pull the latest inventory without picking all 24 again. Use 🔄 to refresh one, or "Refresh all from saved files" up top to refresh the whole crew. ✕ just forgets the file link — it doesn't delete the character's loaded inventory.</p>
+    <div id="rememberedFiles"></div>
+
+    <div class="row" style="margin-top:22px;">
+      <button class="btn danger" id="clearAllBtn">Clear all saved data</button>
+    </div>
+  </section>
+
+  <!-- SEARCH TAB -->
+  <section class="panel" id="tab-search">
+    <h2 class="section-title">Search Inventory</h2>
+    <p class="sub">Type part of an item name to see how many you have total, and which characters are holding it. Separate multiple items with commas to search several at once — e.g. <code>flawless diamond, peridot, soulstone</code>. Each result shows where the item lives — equipped, in bags (including cursor), or in the bank (including shared bank) — and the checkboxes below limit results to those spots.</p>
+    <input type="text" id="searchBox" placeholder="e.g. flawless diamond, peridot, soulstone" style="width:100%; max-width:520px;">
+    <div class="loc-filters">
+      <span class="muted" style="font-size:0.8rem;">Show items in:</span>
+      <label><input type="checkbox" id="filterEquip" checked> ⚔️ Equipped</label>
+      <label><input type="checkbox" id="filterBags" checked> 🎒 Bags</label>
+      <label><input type="checkbox" id="filterBank" checked> 🏦 Bank</label>
+    </div>
+    <details class="char-filters" id="charFilterWrap">
+      <summary id="charFilterSummary">Characters: all</summary>
+      <div class="char-filter-actions">
+        <a id="charFilterAll">Select all</a>
+        <a id="charFilterNone">Select none</a>
+      </div>
+      <div class="char-filter-list" id="charFilterList"></div>
+    </details>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn secondary" id="copyResultsBtn">📋 Copy list to clipboard</button>
+      <span class="muted" id="copyStatus" style="font-size:0.8rem;"></span>
+    </div>
+    <div id="searchResults"></div>
+  </section>
+
+  <!-- SLEEPER KEYS TAB -->
+  <section class="panel" id="tab-keys">
+    <h2 class="section-title">Sleeper's Tomb Keys</h2>
+    <p class="sub">Tracks the six dragon talismans needed for The Sleeper's Tomb across your whole crew — who's holding each piece, what's still missing, and who's closest to a full set for consolidation.</p>
+
+    <div class="stat-grid" id="keysBanner" style="margin-bottom:18px;"></div>
+
+    <h3 class="sub-head" style="margin-top:0;">Box grid</h3>
+    <p class="sub" style="margin-bottom:8px;">One tile per loaded box — <span style="color:var(--ok);">green</span> if it's holding any talismans, <span style="color:var(--danger);">red</span> if none. The count is how many of the six that box has; a full 6/6 set is highlighted gold.</p>
+    <div id="keysGrid" class="key-grid"></div>
+
+    <h3 class="sub-head">Talismans</h3>
+    <div id="keysTable"></div>
+
+    <h3 class="sub-head">Talismans per character</h3>
+    <p class="sub" style="margin-bottom:8px;">How many of the six each character is holding — handy for deciding who to consolidate the set onto.</p>
+    <div id="keysByChar"></div>
+  </section>
+
+  <footer class="note">Parsed inventory is saved to your Claude artifact storage. Remembered file links stay in this browser only. Frostreaver progression server.</footer>
+</div>
+
+<script>
+/* ---------------- State ---------------- */
+let state = { characters: {} };
+let pendingImports = [];
+
+async function saveState(){
+  try{ await window.storage.set('eq_data', JSON.stringify(state), false); }
+  catch(e){ console.error('save failed', e); }
+}
+async function loadState(){
+  try{
+    const res = await window.storage.get('eq_data', false);
+    if (res && res.value) state = JSON.parse(res.value);
+  }catch(e){ /* no saved data yet */ }
+  renderAll();
+}
+
+function ensureChar(name){
+  if (!state.characters[name]){
+    state.characters[name] = { items:{}, updatedAt:null, sourceFilename:null };
+  }
+  return state.characters[name];
+}
+
+/* ---------------- Remembered files (File System Access API) ---------------- */
+const FSA_SUPPORTED = (typeof window.showOpenFilePicker === 'function');
+const IDB_NAME = 'eq_inv_db', IDB_STORE = 'handles';
+
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = ()=>res(req.result);
+    req.onerror = ()=>rej(req.error);
+  });
+}
+async function idbSet(key,val){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const r=tx.objectStore(IDB_STORE).get(key); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+}
+async function idbDel(key){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readwrite'); tx.objectStore(IDB_STORE).delete(key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); });
+}
+async function idbKeys(){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{ const tx=db.transaction(IDB_STORE,'readonly'); const r=tx.objectStore(IDB_STORE).getAllKeys(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); });
+}
+async function idbKeysSafe(){ try{ return await idbKeys(); }catch(e){ return []; } }
+
+function fsaStatus(msg){
+  const el = document.getElementById('fsaStatus');
+  if (!el) return;
+  el.textContent = msg || '';
+  if (msg) setTimeout(()=>{ if (el.textContent === msg) el.textContent=''; }, 6000);
+}
+
+async function ensureReadPermission(handle){
+  try{
+    const opts = { mode:'read' };
+    if (!handle.queryPermission) return true; // older impl without permission gating
+    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    if ((await handle.requestPermission(opts)) === 'granted') return true;
+    return false;
+  }catch(e){ return true; }
+}
+
+async function pickAndRemember(){
+  try{
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [{ description:'Inventory text', accept:{ 'text/plain':['.txt'] } }]
+    });
+    pendingImports = [];
+    for (const h of handles){
+      const file = await h.getFile();
+      const text = await file.text();
+      pendingImports.push({ filename:h.name, name:charNameFromFilename(h.name), items:parseInventoryText(text), handle:h });
+    }
+    renderPending();
+    fsaStatus(`Read ${handles.length} file${handles.length===1?'':'s'} — confirm the names below to import & remember them.`);
+  }catch(e){
+    if (e && e.name === 'AbortError') return; // user closed the picker
+    fsaStatus('Couldn\u2019t open the file picker in this context \u2014 use the drop zone above instead.');
+  }
+}
+
+async function refreshFromSaved(keys){
+  let updated=0, denied=0, unreadable=0;
+  for (const key of keys){
+    let rec; try{ rec = await idbGet(key); }catch(e){ continue; }
+    if (!rec || !rec.handle){ continue; }
+    const ok = await ensureReadPermission(rec.handle);
+    if (!ok){ denied++; continue; }
+    try{
+      const file = await rec.handle.getFile();
+      const text = await file.text();
+      const items = parseInventoryText(text);
+      const cd = ensureChar(key);
+      cd.items = items;
+      cd.updatedAt = new Date().toISOString();
+      cd.sourceFilename = rec.filename;
+      rec.refreshedAt = new Date().toISOString();
+      await idbSet(key, rec);
+      updated++;
+    }catch(e){ unreadable++; }
+  }
+  await saveState();
+  renderAll();
+  let msg = `Refreshed ${updated} file${updated===1?'':'s'}`;
+  if (denied) msg += `, ${denied} need permission`;
+  if (unreadable) msg += `, ${unreadable} unreadable (file moved?)`;
+  fsaStatus(msg + '.');
+}
+
+async function refreshAllFromSaved(){
+  const keys = await idbKeysSafe();
+  if (!keys.length){ fsaStatus('No remembered files yet.'); return; }
+  await refreshFromSaved(keys);
+}
+
+async function renderRemembered(){
+  const wrap = document.getElementById('rememberedFiles');
+  if (!wrap) return;
+
+  if (!FSA_SUPPORTED){
+    document.getElementById('statRemembered').textContent = '—';
+    wrap.innerHTML = '<p class="muted">Remembering files needs a Chromium browser (Chrome / Edge / Brave) with the tool open in its own tab. Your normal drag-and-drop import still works everywhere.</p>';
+    return;
+  }
+
+  const keys = await idbKeysSafe();
+  document.getElementById('statRemembered').textContent = keys.length;
+
+  if (!keys.length){
+    wrap.innerHTML = '<p class="muted">No remembered files yet. Use \u201cChoose &amp; remember files\u201d so you can one-click refresh the crew later.</p>';
+    return;
+  }
+
+  const recs = [];
+  for (const k of keys){
+    let r; try{ r = await idbGet(k); }catch(e){ r = {}; }
+    recs.push({ key:k, filename:(r&&r.filename)||'', refreshedAt:(r&&r.refreshedAt)||(r&&r.savedAt)||null });
+  }
+  recs.sort((a,b)=>a.key.localeCompare(b.key));
+
+  let html = '<table><thead><tr><th>Character</th><th>File</th><th>Last refreshed</th><th></th></tr></thead><tbody>';
+  recs.forEach(r=>{
+    const when = r.refreshedAt ? new Date(r.refreshedAt).toLocaleString() : '—';
+    html += `<tr>
+      <td><strong>${escapeHtml(r.key)}</strong></td>
+      <td class="muted">${escapeHtml(r.filename)}</td>
+      <td class="muted">${escapeHtml(when)}</td>
+      <td><div class="row" style="gap:6px;">
+        <button class="btn secondary" data-refresh-one="${escapeHtml(r.key)}" title="Refresh this file" style="padding:5px 10px;">🔄</button>
+        <button class="btn secondary" data-forget="${escapeHtml(r.key)}" title="Forget this file link" style="padding:5px 10px;">✕</button>
+      </div></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('[data-refresh-one]').forEach(btn=>{
+    btn.addEventListener('click', ()=> refreshFromSaved([btn.dataset.refreshOne]));
+  });
+  wrap.querySelectorAll('[data-forget]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      try{ await idbDel(btn.dataset.forget); }catch(e){}
+      renderRemembered();
+      fsaStatus('Forgot file link (inventory data kept).');
+    });
+  });
+}
+
+/* ---------------- File parsing ---------------- */
+// Location buckets: e = equipped (worn slots), g = bags (General slots + cursor), b = bank (incl. shared), u = unknown (legacy data saved before location tracking)
+function classifyLocation(loc){
+  const l = String(loc||'').toLowerCase();
+  if (l.startsWith('bank') || l.startsWith('sharedbank')) return 'b';
+  if (l.startsWith('general') || l.startsWith('held')) return 'g';
+  return 'e'; // Charm, Ear, Head, ... Primary, Secondary, Ammo, etc.
+}
+// Normalize an item record. Old saves stored a plain number; new saves store {e,g,b}.
+function normRec(v){
+  if (typeof v === 'number') return { e:0, g:0, b:0, u:v };
+  return { e:v.e||0, g:v.g||0, b:v.b||0, u:v.u||0 };
+}
+function recTotal(v){
+  const r = normRec(v);
+  return r.e + r.g + r.b + r.u;
+}
+function parseInventoryText(text){
+  const items = {};
+  const lines = text.split(/\r?\n/);
+  for (const line of lines){
+    if (!line.trim()) continue;
+    const parts = line.split('\t');
+    if (parts.length < 4) continue;
+    const loc = parts[0];
+    const name = parts[1];
+    const count = parts[3];
+    if (!name || name === 'Name' || name === 'Empty') continue;
+    const qty = parseInt(count,10) || 0;
+    if (qty <= 0) continue;
+    const bucket = classifyLocation(loc);
+    if (!items[name]) items[name] = { e:0, g:0, b:0 };
+    items[name][bucket] = (items[name][bucket]||0) + qty;
+  }
+  return items;
+}
+function charNameFromFilename(filename){
+  const base = filename.replace(/\.[^/.]+$/, '');
+  const m = base.match(/^([^_\-]+)/);
+  return m ? m[1] : base;
+}
+
+function readFileAsText(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsText(file);
+  });
+}
+
+async function handleFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.name.toLowerCase().endsWith('.txt'));
+  pendingImports = [];
+  for (const f of files){
+    const text = await readFileAsText(f);
+    const items = parseInventoryText(text);
+    pendingImports.push({ filename:f.name, name: charNameFromFilename(f.name), items, handle:null });
+  }
+  renderPending();
+}
+
+function renderPending(){
+  const area = document.getElementById('pendingArea');
+  if (!pendingImports.length){ area.innerHTML=''; return; }
+  let html = '<table><thead><tr><th>File</th><th>Character name</th><th>Items found</th><th>Remember</th></tr></thead><tbody>';
+  pendingImports.forEach((p,i)=>{
+    const rememberCell = p.handle
+      ? '<span class="pill ok">will remember</span>'
+      : '<span class="pill neutral">one-time</span>';
+    html += `<tr><td class="muted">${escapeHtml(p.filename)}</td>
+      <td><input type="text" data-pend-idx="${i}" class="pend-name" value="${escapeHtml(p.name)}"></td>
+      <td>${Object.keys(p.items).length}</td>
+      <td>${rememberCell}</td></tr>`;
+  });
+  html += '</tbody></table><div class="row" style="margin-top:12px;"><button class="btn" id="confirmImportBtn">Import these characters</button> <button class="btn secondary" id="cancelImportBtn">Cancel</button></div>';
+  area.innerHTML = html;
+
+  document.querySelectorAll('.pend-name').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      pendingImports[+e.target.dataset.pendIdx].name = e.target.value;
+    });
+  });
+  document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
+  document.getElementById('cancelImportBtn').addEventListener('click', ()=>{ pendingImports=[]; renderPending(); });
+}
+
+async function confirmImport(){
+  for (const p of pendingImports){
+    const name = p.name.trim();
+    if (!name) continue;
+    state.characters[name] = {
+      items: p.items,
+      updatedAt: new Date().toISOString(),
+      sourceFilename: p.filename
+    };
+    if (p.handle){
+      try{ await idbSet(name, { handle:p.handle, filename:p.filename, refreshedAt:new Date().toISOString() }); }
+      catch(e){ /* IndexedDB unavailable — import still succeeds, just not remembered */ }
+    }
+  }
+  pendingImports = [];
+  await saveState();
+  renderAll();
+}
+
+/* ---------------- Rendering: Upload tab ---------------- */
+function renderRoster(){
+  const chars = Object.keys(state.characters).sort();
+  document.getElementById('statChars').textContent = chars.length;
+  const uniqueItems = new Set();
+  chars.forEach(c=> Object.keys(state.characters[c].items).forEach(i=>uniqueItems.add(i)));
+  document.getElementById('statItems').textContent = uniqueItems.size;
+
+  const roster = document.getElementById('charRoster');
+  if (!chars.length){
+    roster.innerHTML = '<span class="muted">No characters loaded yet.</span>';
+    return;
+  }
+  roster.innerHTML = chars.map(c=>{
+    const itemCount = Object.keys(state.characters[c].items).length;
+    return `<span class="char-chip">${escapeHtml(c)} <span class="muted">(${itemCount})</span> <span class="x" data-remove-char="${escapeHtml(c)}" title="Remove character">✕</span></span>`;
+  }).join('');
+  roster.querySelectorAll('[data-remove-char]').forEach(el=>{
+    el.addEventListener('click', async ()=>{
+      const name = el.dataset.removeChar;
+      delete state.characters[name];
+      try{ await idbDel(name); }catch(e){}
+      await saveState();
+      renderAll();
+    });
+  });
+}
+
+/* ---------------- Rendering: Search tab ---------------- */
+function parseSearchTerms(query){
+  const seen = new Set();
+  const terms = [];
+  query.split(',').forEach(raw=>{
+    const t = raw.trim();
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;   // ignore duplicate terms
+    seen.add(key);
+    terms.push(t);
+  });
+  return terms;
+}
+
+// Characters unchecked in the search-tab filter (default: none, i.e. everyone shown).
+let charFilterExcluded = new Set();
+
+function currentCharFilters(){
+  const all = Object.keys(state.characters);
+  if (!all.length) return null;
+  const included = new Set(all.filter(c=>!charFilterExcluded.has(c)));
+  if (included.size === all.length) return null; // no filtering needed
+  return included;
+}
+
+function renderCharFilters(){
+  const list = document.getElementById('charFilterList');
+  const summary = document.getElementById('charFilterSummary');
+  const names = Object.keys(state.characters).sort();
+
+  // Drop stale exclusions for characters that no longer exist.
+  charFilterExcluded = new Set([...charFilterExcluded].filter(c=>names.includes(c)));
+
+  if (!names.length){
+    list.innerHTML = '<span class="muted" style="font-size:0.82rem;">Load some characters first.</span>';
+    summary.textContent = 'Characters: none loaded';
+    return;
+  }
+
+  list.innerHTML = names.map(c=>{
+    const checked = charFilterExcluded.has(c) ? '' : 'checked';
+    return `<label><input type="checkbox" class="charFilterBox" data-char="${escapeHtml(c)}" ${checked}> ${escapeHtml(c)}</label>`;
+  }).join('');
+
+  const includedCount = names.length - charFilterExcluded.size;
+  summary.textContent = includedCount === names.length
+    ? 'Characters: all'
+    : `Characters: ${includedCount} of ${names.length}`;
+}
+
+function currentLocFilters(){
+  return {
+    e: document.getElementById('filterEquip').checked,
+    g: document.getElementById('filterBags').checked,
+    b: document.getElementById('filterBank').checked
+  };
+}
+
+function matchesForTerm(term, filters, charFilter){
+  const q = term.toLowerCase();
+  const result = {}; // itemName -> { total, e,g,b,u, perChar: { char: {total,e,g,b,u} } }
+  for (const [charName, cd] of Object.entries(state.characters)){
+    if (charFilter && !charFilter.has(charName)) continue;
+    for (const [itemName, raw] of Object.entries(cd.items)){
+      if (!itemName.toLowerCase().includes(q)) continue;
+      const r = normRec(raw);
+      // apply location filters; legacy "unknown" counts always show (re-upload the file to get locations)
+      const e = filters.e ? r.e : 0;
+      const g = filters.g ? r.g : 0;
+      const b = filters.b ? r.b : 0;
+      const u = r.u;
+      const total = e + g + b + u;
+      if (total <= 0) continue;
+      if (!result[itemName]) result[itemName] = { total:0, e:0, g:0, b:0, u:0, perChar:{} };
+      const it = result[itemName];
+      it.total += total; it.e += e; it.g += g; it.b += b; it.u += u;
+      if (!it.perChar[charName]) it.perChar[charName] = { total:0, e:0, g:0, b:0, u:0 };
+      const pc = it.perChar[charName];
+      pc.total += total; pc.e += e; pc.g += g; pc.b += b; pc.u += u;
+    }
+  }
+  return result;
+}
+
+function locPillsHtml(rec, compact){
+  const bits = [];
+  if (rec.e) bits.push(`<span class="pill equip">⚔️ ${rec.e}</span>`);
+  if (rec.g) bits.push(`<span class="pill bag">🎒 ${rec.g}</span>`);
+  if (rec.b) bits.push(`<span class="pill bank">🏦 ${rec.b}</span>`);
+  if (rec.u) bits.push(`<span class="pill unknown" title="Saved before location tracking — re-upload this character's file to see where it is.">? ${rec.u}</span>`);
+  return bits.join(' ');
+}
+function locTextParts(rec){
+  const bits = [];
+  if (rec.e) bits.push(`equipped ${rec.e}`);
+  if (rec.g) bits.push(`bags ${rec.g}`);
+  if (rec.b) bits.push(`bank ${rec.b}`);
+  if (rec.u) bits.push(`unknown ${rec.u}`);
+  return bits.join(', ');
+}
+
+function totalsTableHtml(totals){
+  const names = Object.keys(totals).sort((a,b)=>totals[b].total-totals[a].total).slice(0,80);
+  if (!names.length) return '';
+  let html = '<table><thead><tr><th>Item</th><th>Total</th><th>Where</th><th></th></tr></thead><tbody>';
+  names.forEach(n=>{
+    const t = totals[n];
+    const breakdown = Object.entries(t.perChar).sort((a,b)=>b[1].total-a[1].total)
+      .map(([c,pc])=>`<div class="src-row">${escapeHtml(c)}: <strong>${pc.total}</strong> <span style="opacity:0.75;">(${locTextParts(pc)})</span></div>`).join('');
+    html += `<tr><td>${escapeHtml(n)}</td><td><strong>${t.total}</strong></td>
+      <td style="white-space:nowrap;">${locPillsHtml(t)}</td>
+      <td><details><summary>by character (${Object.keys(t.perChar).length})</summary>${breakdown}</details></td></tr>`;
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+let lastSearchGroups = []; // [{ term, totals }]
+function renderSearch(){
+  const raw = document.getElementById('searchBox').value;
+  const target = document.getElementById('searchResults');
+  document.getElementById('copyStatus').textContent = '';
+  lastSearchGroups = [];
+
+  if (!Object.keys(state.characters).length){
+    target.innerHTML = '<div class="empty-state"><div class="icon">📦</div>Load some inventory files first, on the Upload tab.</div>';
+    return;
+  }
+
+  const terms = parseSearchTerms(raw);
+  if (!terms.length){
+    target.innerHTML = '<p class="muted" style="margin-top:14px;">Start typing to search across all loaded characters. Separate multiple items with commas to search several at once.</p>';
+    return;
+  }
+
+  const filters = currentLocFilters();
+  const charFilter = currentCharFilters();
+  const multi = terms.length > 1;
+  let html = '';
+  terms.forEach(term=>{
+    const totals = matchesForTerm(term, filters, charFilter);
+    lastSearchGroups.push({ term, totals });
+    const table = totalsTableHtml(totals);
+    if (multi){
+      const count = Object.keys(totals).length;
+      html += `<div class="group-block"><h3>${escapeHtml(term)} <span class="muted" style="font-weight:400;font-size:0.78rem;">(${count} item${count===1?'':'s'})</span></h3>`;
+      html += table || '<p class="muted" style="margin-top:6px;">No matches.</p>';
+      html += '</div>';
+    } else {
+      html += table || '<p class="muted" style="margin-top:14px;">No matches.</p>';
+    }
+  });
+  target.innerHTML = html;
+}
+
+/* ---------------- Rendering: Sleeper's Tomb keys ---------------- */
+const STK_KEYS = [
+  "Sontalak's Talisman",
+  "Lendiniara's Talisman",
+  "Klandicar's Talisman",
+  "Yelinak's Talisman",
+  "Zlandicar's Talisman",
+  "Shard of Hsagra's Talisman"
+];
+
+function holdersForKey(keyName){
+  const q = keyName.toLowerCase();
+  const holders = {}; // char -> qty
+  let total = 0;
+  for (const [charName, cd] of Object.entries(state.characters)){
+    for (const [itemName, raw] of Object.entries(cd.items)){
+      if (itemName.toLowerCase().includes(q)){
+        const qty = recTotal(raw);
+        holders[charName] = (holders[charName]||0) + qty;
+        total += qty;
+      }
+    }
+  }
+  return { holders, total };
+}
+
+// Fixed grid order, matching your box monitor layout.
+// Any loaded character not listed here is appended alphabetically.
+const BOX_ORDER = [
+  "Araso","Yizie","Tavv","Etude","Treeport","Lumia",
+  "Sulil","Maat","Eavv","Calren","Ayze","Yeou",
+  "Sumoto","Yaru","Teirel","Paeon","Tohoku","Helia",
+  "Zilara","Coeurl","Skorr","Minne","Fenrir","Skotos",
+  "Ysuu","Iprefermen"
+];
+
+function keyCountForChar(charName){
+  const cd = state.characters[charName];
+  if (!cd) return 0;
+  let n = 0;
+  for (const k of STK_KEYS){
+    const q = k.toLowerCase();
+    for (const itemName of Object.keys(cd.items)){
+      if (itemName.toLowerCase().includes(q)){ n++; break; }
+    }
+  }
+  return n;
+}
+
+function effectiveBoxOrder(loaded){
+  const loadedSet = new Set(loaded);
+  const result = [];
+  const used = new Set();
+  // fixed monitor layout first
+  BOX_ORDER.forEach(name=>{
+    if (loadedSet.has(name) && !used.has(name)){ result.push(name); used.add(name); }
+  });
+  // any remaining loaded boxes, alphabetically
+  loaded.filter(n=>!used.has(n)).sort().forEach(n=>result.push(n));
+  return result;
+}
+
+function renderKeyGrid(){
+  const wrap = document.getElementById('keysGrid');
+  if (!wrap) return;
+  const loaded = Object.keys(state.characters);
+  if (!loaded.length){ wrap.innerHTML = '<p class="muted" style="padding:6px;">Load some inventory files first, on the Upload tab.</p>'; return; }
+
+  const ordered = effectiveBoxOrder(loaded);
+
+  const total = STK_KEYS.length;
+  wrap.innerHTML = ordered.map(name=>{
+    const n = keyCountForChar(name);
+    const has = n > 0;
+    const full = n === total;
+    const cls = full ? 'full' : (has ? 'have' : 'none');
+    // green tiles fill proportionally to how many keys; red tiles fill solid.
+    const fillWidth = has ? Math.max(Math.round((n/total)*100), 12) : 100;
+    return `<div class="box-tile ${cls}">
+      <div class="box-pc">PC</div>
+      <div class="box-body">
+        <div class="box-head"><span class="box-name">${escapeHtml(name)}</span><span class="box-count">${n} / ${total}</span></div>
+        <div class="box-bar"><div class="box-fill" style="width:${fillWidth}%"></div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderKeys(){
+  const banner = document.getElementById('keysBanner');
+  const keyWrap = document.getElementById('keysTable');
+  const charWrap = document.getElementById('keysByChar');
+
+  renderKeyGrid();
+
+  if (!Object.keys(state.characters).length){
+    banner.innerHTML = '';
+    keyWrap.innerHTML = '<p class="muted">Load some inventory files first, on the Upload tab.</p>';
+    charWrap.innerHTML = '';
+    return;
+  }
+
+  const results = STK_KEYS.map(k=>({ key:k, ...holdersForKey(k) }));
+  const missing = results.filter(r=>r.total===0).map(r=>r.key);
+  const haveCount = STK_KEYS.length - missing.length;
+
+  // status banner
+  if (!missing.length){
+    banner.innerHTML = `<div class="stat-box" style="border-color:var(--teal-dim);">
+      <div class="num" style="color:var(--ok);">Full set ✓</div>
+      <div class="lbl">all ${STK_KEYS.length} talismans present across the crew</div></div>`;
+  } else {
+    banner.innerHTML = `<div class="stat-box" style="border-color:var(--gold-dim);">
+      <div class="num" style="color:var(--gold);">${haveCount} / ${STK_KEYS.length}</div>
+      <div class="lbl">talismans held &mdash; still missing: ${missing.map(escapeHtml).join(', ')}</div></div>`;
+  }
+
+  // per-talisman table
+  let html = '<table><thead><tr><th>Talisman</th><th>Total</th><th>Status</th><th>Held by</th></tr></thead><tbody>';
+  results.forEach(r=>{
+    const pill = r.total>0 ? '<span class="pill ok">have</span>' : '<span class="pill danger">missing</span>';
+    const entries = Object.entries(r.holders).sort((a,b)=>b[1]-a[1]);
+    const holders = entries.length
+      ? `<details><summary>${entries.length} character${entries.length===1?'':'s'}</summary>${entries.map(([c,q])=>`<div class="src-row">${escapeHtml(c)}: <strong>${q}</strong></div>`).join('')}</details>`
+      : '<span class="muted">—</span>';
+    html += `<tr><td><strong>${escapeHtml(r.key)}</strong></td><td>${r.total}</td><td>${pill}</td><td>${holders}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  keyWrap.innerHTML = html;
+
+  // per-character: how many distinct talismans each holds
+  const perChar = {}; // char -> Set of key names
+  results.forEach(r=>{
+    Object.keys(r.holders).forEach(c=>{
+      if (!perChar[c]) perChar[c] = new Set();
+      perChar[c].add(r.key);
+    });
+  });
+  const charRows = Object.entries(perChar)
+    .map(([c,set])=>({ c, n:set.size, keys:[...set] }))
+    .sort((a,b)=>b.n-a.n || a.c.localeCompare(b.c));
+
+  if (!charRows.length){
+    charWrap.innerHTML = '<p class="muted">No talismans found on any character yet.</p>';
+  } else {
+    let h2 = '<table><thead><tr><th>Character</th><th>Talismans</th><th>Which</th></tr></thead><tbody>';
+    charRows.forEach(row=>{
+      const full = row.n === STK_KEYS.length ? ' <span class="pill ok">full set</span>' : '';
+      h2 += `<tr><td><strong>${escapeHtml(row.c)}</strong>${full}</td>
+        <td>${row.n} / ${STK_KEYS.length}</td>
+        <td class="muted" style="font-size:0.8rem;">${row.keys.map(escapeHtml).join(', ')}</td></tr>`;
+    });
+    h2 += '</tbody></table>';
+    charWrap.innerHTML = h2;
+  }
+}
+
+/* ---------------- Shared ---------------- */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderAll(){
+  renderRoster();
+  renderCharFilters();
+  renderSearch();
+  renderKeys();
+  renderRemembered();
+}
+
+/* ---------------- Wiring ---------------- */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('section.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.getElementById('fileInput').addEventListener('change', e=> handleFiles(e.target.files));
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag'); });
+dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag'));
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+
+if (FSA_SUPPORTED){
+  document.getElementById('fsaRow').style.display = 'flex';
+  document.getElementById('pickRememberBtn').addEventListener('click', pickAndRemember);
+  document.getElementById('refreshAllBtn').addEventListener('click', refreshAllFromSaved);
+}
+
+document.getElementById('clearAllBtn').addEventListener('click', async ()=>{
+  if (!confirm('Clear all saved character data and remembered files? This cannot be undone.')) return;
+  const keys = await idbKeysSafe();
+  for (const k of keys){ try{ await idbDel(k); }catch(e){} }
+  state = { characters: {} };
+  await saveState();
+  renderAll();
+});
+
+document.getElementById('searchBox').addEventListener('input', renderSearch);
+['filterEquip','filterBags','filterBank'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderSearch);
+});
+
+document.getElementById('charFilterList').addEventListener('change', e=>{
+  const box = e.target.closest('.charFilterBox');
+  if (!box) return;
+  const c = box.dataset.char;
+  if (box.checked) charFilterExcluded.delete(c);
+  else charFilterExcluded.add(c);
+  renderCharFilters();
+  renderSearch();
+});
+document.getElementById('charFilterAll').addEventListener('click', ()=>{
+  charFilterExcluded.clear();
+  renderCharFilters();
+  renderSearch();
+});
+document.getElementById('charFilterNone').addEventListener('click', ()=>{
+  charFilterExcluded = new Set(Object.keys(state.characters));
+  renderCharFilters();
+  renderSearch();
+});
+
+document.getElementById('copyResultsBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('copyStatus');
+  if (!lastSearchGroups.length){ status.textContent = 'Nothing to copy — search for something first.'; return; }
+  const multi = lastSearchGroups.length > 1;
+  const lines = [];
+  let itemCount = 0;
+  lastSearchGroups.forEach(g=>{
+    const names = Object.keys(g.totals).sort((a,b)=>g.totals[b].total-g.totals[a].total);
+    if (multi) lines.push(`=== ${g.term} ===`);
+    if (!names.length){
+      if (multi){ lines.push('(no matches)', ''); }
+      return;
+    }
+    names.forEach(n=>{
+      const t = g.totals[n];
+      const loc = locTextParts(t);
+      lines.push(`${n}: ${t.total}${loc ? ` (${loc})` : ''}`);
+      itemCount++;
+    });
+    if (multi) lines.push('');
+  });
+  if (!itemCount){ status.textContent = 'No matches to copy.'; return; }
+  const text = lines.join('\n').trim();
+  try{
+    await navigator.clipboard.writeText(text);
+    status.textContent = `Copied ${itemCount} item${itemCount===1?'':'s'} to clipboard.`;
+  }catch(e){
+    status.textContent = 'Could not copy automatically — select and copy the text manually.';
+  }
+  setTimeout(()=>{ status.textContent=''; }, 4000);
+});
+
+loadState();
+</script>
+</body>
+</html>
