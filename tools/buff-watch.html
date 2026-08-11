@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buff Watch — Frostreaver Toolbox</title>
+<style>
+:root{
+  --bg:#05070a; --panel:#0b1016; --panel2:#0e151d; --line:#1a2531;
+  --sense:#4ee6ff; --text:#dbe4ec; --dim:#7c8b99;
+  --ok:#1f6b46; --warn:#8a6410; --crit:#8f2f2b; --perm:#20486e; --dead:#2a3138;
+  --okT:#4fd48b; --warnT:#f0c14b; --critT:#ff7a6e;
+  --row:18px; --namesize:11.5px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font:13px/1.4 "Segoe UI",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"Cascadia Mono",Consolas,"SF Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- chrome ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:9px 14px;background:linear-gradient(#0d141c,#080d13);
+  border-bottom:1px solid var(--line);
+}
+.brand{font-weight:700;letter-spacing:.14em;font-size:11px;color:var(--sense);text-transform:uppercase;white-space:nowrap}
+.brand span{color:var(--dim);letter-spacing:.06em;font-weight:400}
+.status{font-size:11px;color:var(--dim);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status b{color:var(--text);font-weight:600}
+.status.err{color:var(--critT)}
+button{
+  font:inherit;font-size:11.5px;color:var(--text);background:var(--panel2);
+  border:1px solid var(--line);border-radius:3px;padding:5px 10px;cursor:pointer;white-space:nowrap;
+}
+button:hover{border-color:#2f4356;background:#131c26}
+button.primary{border-color:#20596b;color:var(--sense)}
+button.primary:hover{background:#0f2530}
+button[aria-pressed="true"]{background:#12212c;border-color:#2b5f72;color:var(--sense)}
+
+.controls{
+  display:none;gap:16px;flex-wrap:wrap;align-items:center;
+  padding:9px 14px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11.5px;
+}
+.controls.open{display:flex}
+.ctl{display:flex;align-items:center;gap:6px;color:var(--dim)}
+.ctl input[type=number]{width:52px}
+.ctl input[type=text]{width:150px}
+input[type=text],input[type=number]{
+  font:inherit;font-size:11.5px;background:#070b0f;color:var(--text);
+  border:1px solid var(--line);border-radius:3px;padding:4px 6px;
+}
+input:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--sense);outline-offset:1px}
+label.chk{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--dim)}
+
+/* ---------- urgent strip ---------- */
+#urgent{display:none;gap:6px;flex-wrap:wrap;padding:8px 14px;border-bottom:1px solid var(--line);background:#0a0f15}
+#urgent.on{display:flex}
+.upill{
+  display:flex;align-items:center;gap:7px;font-size:11px;
+  background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--critT);
+  border-radius:3px;padding:3px 8px;
+}
+.upill .who{color:var(--dim)}
+.upill .t{color:var(--critT);font-weight:600}
+
+/* ---------- grid ---------- */
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:10px;padding:12px 14px 28px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.card h2{
+  margin:0;display:flex;align-items:baseline;gap:8px;padding:6px 9px;
+  background:var(--panel2);border-bottom:1px solid var(--line);
+  font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--sense);
+}
+.card h2 .age{margin-left:auto;font-size:10px;font-weight:400;color:var(--dim)}
+.card h2 .age.stale{color:var(--warnT)}
+.rows{padding:4px 5px 5px}
+.empty{padding:10px 9px;font-size:11px;color:var(--dim)}
+
+/* the signature: a slot that drains right-to-left behind the text */
+.slot{position:relative;height:var(--row);margin-bottom:2px;border-radius:2px;background:#080d12;overflow:hidden}
+.slot .fill{position:absolute;inset:0 auto 0 0;width:100%;background:var(--ok);transition:width .5s linear,background-color .3s}
+.slot.w .fill{background:var(--warn)}
+.slot.c .fill{background:var(--crit)}
+.slot.p .fill{background:var(--perm)}
+.slot.x .fill{background:var(--dead)}
+.slot .nm{
+  position:absolute;left:6px;right:52px;top:0;bottom:0;display:flex;align-items:center;gap:5px;
+  font-size:var(--namesize);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.slot .cst{color:#9fb4c4;opacity:.75;font-size:10px}
+.slot .tm{position:absolute;right:6px;top:0;bottom:0;display:flex;align-items:center;font-size:11px;font-weight:600}
+.slot.c .tm{color:var(--critT)}
+.slot.x{opacity:.5}
+.slot.blink{animation:bk 1s steps(2,end) infinite}
+@keyframes bk{50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){
+  .slot.blink{animation:none}
+  .slot .fill{transition:none}
+}
+
+/* ---------- compact (used in the pop-out) ---------- */
+body.compact{--row:15px;--namesize:10.5px}
+body.compact .topbar,body.compact .controls,body.compact .help{display:none}
+body.compact #grid{grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:6px;padding:6px}
+body.compact .card h2{padding:3px 7px;font-size:11px}
+body.compact .rows{padding:3px 4px 4px}
+
+/* ---------- panels ---------- */
+dialog{
+  background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:5px;
+  padding:0;max-width:640px;width:92vw;
+}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+dialog header{padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600;font-size:12px;color:var(--sense)}
+dialog .body{padding:14px}
+dialog footer{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+textarea{
+  width:100%;height:190px;font:12px/1.45 Consolas,ui-monospace,monospace;
+  background:#070b0f;color:var(--text);border:1px solid var(--line);border-radius:3px;padding:8px;resize:vertical;
+}
+.help{padding:0 14px 30px;max-width:820px;color:var(--dim);font-size:12px;line-height:1.65}
+.help h3{color:var(--text);font-size:12px;margin:18px 0 6px;font-weight:600}
+.help code{background:#0d141c;border:1px solid var(--line);border-radius:2px;padding:1px 5px;color:var(--sense);font-size:11px}
+.help ol,.help ul{margin:6px 0;padding-left:20px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">Buff Watch <span>/ frostreaver</span></div>
+  <div class="status" id="status">No log source connected.</div>
+  <button id="btnConnect" class="primary">Connect logs…</button>
+  <button id="btnPaste">Paste</button>
+  <button id="btnPop">Pop out</button>
+  <button id="btnCtl" aria-pressed="false">Settings</button>
+</div>
+
+<div class="controls" id="controls">
+  <div class="ctl">Filter <input type="text" id="fSearch" placeholder="buff or character"></div>
+  <div class="ctl">Warn under <input type="number" id="fWarn" min="0" step="30"> s</div>
+  <div class="ctl">Critical under <input type="number" id="fCrit" min="0" step="10"> s</div>
+  <div class="ctl">Hide over <input type="number" id="fHide" min="0" step="5"> min <span title="0 = show everything">(0=off)</span></div>
+  <label class="chk"><input type="checkbox" id="fCaster"> Show caster</label>
+  <label class="chk"><input type="checkbox" id="fUrgent"> Urgent strip</label>
+  <label class="chk"><input type="checkbox" id="fKeep"> Keep expired</label>
+  <label class="chk"><input type="checkbox" id="fCompact"> Compact</label>
+  <button id="btnClear">Clear all</button>
+</div>
+
+<div id="urgent"></div>
+<div id="grid"></div>
+
+<div class="help">
+  <h3>Getting timers in here</h3>
+  <ol>
+    <li>In game: <code>/log on</code> (once per character).</li>
+    <li>Target yourself or someone else and run <code>/inspectbuffs</code>. Broadcast it across your boxes to refresh everything at once.</li>
+    <li>Hit <b>Connect logs…</b> and pick your EverQuest <code>Logs</code> folder. This page then tails every <code>eqlog_*.txt</code> and keeps counting down on its own.</li>
+  </ol>
+  <p>The log is a snapshot, not a stream — so each line's timestamp gets added to its "remaining" value to get a real expiry, and the countdown runs from there. Re-run <code>/inspectbuffs</code> any time to resync.</p>
+  <h3>Pop-out</h3>
+  <p><b>Pop out</b> opens a floating always-on-top window (Chrome/Edge). Browsers can't make a page background truly transparent, so this is an opaque mini-window rather than a see-through overlay. Run EQ in Windowed or Borderless Windowed or it'll paint over the top.</p>
+  <h3>No folder picker?</h3>
+  <p>Firefox and Safari don't support the folder API. Use <b>Paste</b> — dump log text straight in and it'll parse the same way.</p>
+</div>
+
+<dialog id="dlgPaste">
+  <header>Paste log text</header>
+  <div class="body">
+    <p style="margin:0 0 8px;font-size:11.5px;color:var(--dim)">
+      Paste any chunk of log containing <code style="background:#0d141c;padding:1px 5px;border-radius:2px;color:var(--sense)">--You sense … remaining.--</code> lines.
+      Timestamped lines are preferred; untimestamped lines are treated as "just now".
+    </p>
+    <textarea id="pasteBox" spellcheck="false" placeholder="[Sat Aug 08 21:34:12 2026] --You sense Talisman of Shadoo [Tohoku] on Araso has 00:21:36 remaining.--"></textarea>
+  </div>
+  <footer>
+    <button id="pasteCancel">Cancel</button>
+    <button id="pasteGo" class="primary">Parse</button>
+  </footer>
+</dialog>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   PARSER — matches the real /inspectbuffs output:
+   [Sat Aug 08 21:34:12 2026] --You sense Selo's Accelerando [Etude] on Araso has 00:00:06 remaining.--
+   ========================================================================= */
+
+const MONTHS = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+
+// [Ddd Mmm D HH:MM:SS YYYY] message
+const RX_STAMP  = /^\[([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})\]\s?(.*)$/;
+// Greedy on the name so buff names containing " on " still resolve to the LAST " on <target> has".
+const RX_SENSE  = /You sense (.+) on (\S+?) has (\d{1,3}):(\d{2}):(\d{2}) remaining/;
+// "You sense 2 enchantment(s) on Araso:"  /  "You sense no enchantments on Araso."
+const RX_HEADER = /You sense (?:(\d+) enchantment|no enchantment)\w*\(?s?\)? on (\S+?)[.:]?\s*$/;
+const RX_CASTER = /^(.*?)\s*\[([^\]]+)\]$/;
+
+function parseStamp(m){
+  const mo = MONTHS[m[2]];
+  if (mo === undefined) return null;
+  return new Date(+m[7], mo, +m[3], +m[4], +m[5], +m[6]);
+}
+
+/** Parse one log line -> {kind:'buff'|'header', ...} or null. */
+function parseLine(raw){
+  let when = null, msg = raw;
+  const s = RX_STAMP.exec(raw);
+  if (s){ when = parseStamp(s); msg = s[8]; }
+  msg = msg.replace(/^-{2,}\s*/, "").replace(/\s*-{2,}\s*$/, "").trim();
+  if (!msg.startsWith("You sense")) return null;
+
+  const b = RX_SENSE.exec(msg);
+  if (b){
+    let name = b[1].trim(), caster = "";
+    const c = RX_CASTER.exec(name);
+    if (c){ name = c[1].trim(); caster = c[2].trim(); }
+    const secs = (+b[3])*3600 + (+b[4])*60 + (+b[5]);
+    if (!name) return null;
+    return { kind:"buff", when, target:b[2], name, caster, secs };
+  }
+  const h = RX_HEADER.exec(msg);
+  if (h) return { kind:"header", when, target:h[2], count: h[1] === undefined ? 0 : +h[1] };
+  return null;
+}
+
+/**
+ * Fold parsed lines into per-target snapshots.
+ * A target's snapshot = every buff line within SNAP_WINDOW of that target's
+ * newest line, so a fresh /inspectbuffs cleanly replaces the previous one.
+ */
+const SNAP_WINDOW = 6000; // ms
+
+function foldSnapshots(lines, fallbackTime){
+  const byTarget = new Map();
+  for (const p of lines){
+    const t = p.when ? p.when.getTime() : fallbackTime;
+    if (!byTarget.has(p.target)) byTarget.set(p.target, []);
+    byTarget.get(p.target).push({ ...p, t });
+  }
+  const out = new Map();
+  for (const [target, items] of byTarget){
+    const newest = Math.max(...items.map(i => i.t));
+    const inSnap = items.filter(i => i.t >= newest - SNAP_WINDOW);
+    const buffs = [];
+    const seen = new Set();
+    for (const i of inSnap){
+      if (i.kind !== "buff") continue;
+      const key = i.name + "|" + i.caster;
+      if (seen.has(key)) continue;      // same buff logged twice in one dump
+      seen.add(key);
+      buffs.push({
+        name: i.name,
+        caster: i.caster,
+        duration: Math.max(1, i.secs),
+        perm: i.secs === 0,             // 0:00:00 never means "expiring now" here
+        expiry: i.t + i.secs * 1000
+      });
+    }
+    buffs.sort((a,b) => a.expiry - b.expiry);
+    out.set(target, { stamp: newest, buffs });
+  }
+  return out;
+}
+
+function parseText(text, fallbackTime){
+  const lines = [];
+  for (const raw of text.split(/\r?\n/)){
+    const p = parseLine(raw);
+    if (p) lines.push(p);
+  }
+  return foldSnapshots(lines, fallbackTime);
+}
+
+/* =========================================================================
+   STATE + SETTINGS
+   ========================================================================= */
+
+const DEFAULTS = { warn:600, crit:120, hideOver:0, caster:true, urgent:true, keep:false, compact:false };
+const state = {
+  cfg: {...DEFAULTS},
+  chars: new Map(),        // target -> {stamp, buffs:[]}
+  files: new Map(),        // filename -> {handle, size, carry}
+  dirHandle: null,
+  search: "",
+  lastPoll: 0,
+  err: ""
+};
+
+const LS = "buffwatch.cfg";
+function loadCfg(){
+  try{ Object.assign(state.cfg, JSON.parse(localStorage.getItem(LS) || "{}")); }catch(e){}
+}
+function saveCfg(){
+  try{ localStorage.setItem(LS, JSON.stringify(state.cfg)); }catch(e){}
+}
+
+/* Remember the chosen folder across visits (same pattern as the inventory tool). */
+const IDB_DB = "buffwatch", IDB_STORE = "handles";
+function idb(){
+  return new Promise((res, rej) => {
+    let r;
+    try{ r = indexedDB.open(IDB_DB, 1); }catch(e){ return rej(e); }
+    r.onupgradeneeded = () => r.result.createObjectStore(IDB_STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbPut(k, v){
+  try{
+    const db = await idb();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(v, k);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  }catch(e){}
+}
+async function idbGet(k){
+  try{
+    const db = await idb();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, "readonly");
+      const q = tx.objectStore(IDB_STORE).get(k);
+      q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+    });
+  }catch(e){ return null; }
+}
+
+/* =========================================================================
+   LOG TAILING (File System Access API)
+   ========================================================================= */
+
+const TAIL_BYTES = 262144;   // first read per file
+const POLL_MS    = 2000;
+
+function charFromFilename(n){
+  const m = /^eqlog_(.+?)_[^_]+\.txt$/i.exec(n);
+  return m ? m[1] : n.replace(/\.txt$/i, "");
+}
+
+async function connectLogs(){
+  if (!window.showDirectoryPicker){
+    setStatus("This browser has no folder picker — use Paste instead.", true);
+    return;
+  }
+  try{
+    const dir = await window.showDirectoryPicker({ id:"eqlogs", mode:"read" });
+    state.dirHandle = dir;
+    state.files.clear();
+    await idbPut("logdir", dir);
+    setStatus("Reading…");
+    await pollLogs(true);
+  }catch(e){
+    if (e && e.name !== "AbortError") setStatus("Couldn't open that folder: " + e.message, true);
+  }
+}
+
+async function restoreLogs(){
+  const dir = await idbGet("logdir");
+  if (!dir) return;
+  let perm = "prompt";
+  try{ perm = await dir.queryPermission({ mode:"read" }); }catch(e){ return; }
+  if (perm === "granted"){
+    state.dirHandle = dir;
+    await pollLogs(true);
+  }else{
+    setStatus("Log folder remembered — click Connect logs to allow reading again.");
+    document.getElementById("btnConnect").textContent = "Reconnect logs";
+    document.getElementById("btnConnect").onclick = async () => {
+      try{
+        if (await dir.requestPermission({ mode:"read" }) === "granted"){
+          state.dirHandle = dir;
+          document.getElementById("btnConnect").textContent = "Connect logs…";
+          document.getElementById("btnConnect").onclick = connectLogs;
+          await pollLogs(true);
+        }
+      }catch(e){ setStatus("Permission denied.", true); }
+    };
+  }
+}
+
+let polling = false;
+async function pollLogs(first){
+  if (!state.dirHandle || polling) return;
+  polling = true;
+  let read = 0, fileCount = 0;
+  try{
+    for await (const [name, handle] of state.dirHandle.entries()){
+      if (handle.kind !== "file" || !/^eqlog_.+\.txt$/i.test(name)) continue;
+      fileCount++;
+      let rec = state.files.get(name);
+      if (!rec){ rec = { handle, size:0, carry:"", init:false }; state.files.set(name, rec); }
+
+      let file;
+      try{ file = await handle.getFile(); }catch(e){ continue; }
+
+      // Log cleared or rotated -> start over from the tail.
+      if (file.size < rec.size){ rec.size = 0; rec.carry = ""; rec.init = false; }
+
+      let start;
+      if (!rec.init){ start = Math.max(0, file.size - TAIL_BYTES); rec.init = true; }
+      else if (file.size === rec.size){ continue; }
+      else { start = rec.size; }
+
+      const text = await file.slice(start, file.size).text();
+      rec.size = file.size;
+      read++;
+
+      const buf = rec.carry + text;
+      const lines = buf.split(/\r?\n/);
+      rec.carry = lines.pop() ?? "";           // hold the partial trailing line
+      if (rec.carry.length > 4096) rec.carry = "";
+
+      const snaps = parseText(lines.join("\n"), file.lastModified);
+      for (const [target, snap] of snaps){
+        const cur = state.chars.get(target);
+        if (!cur || snap.stamp >= cur.stamp) state.chars.set(target, snap);
+      }
+    }
+    state.lastPoll = Date.now();
+    setStatus(`<b>${fileCount}</b> log${fileCount===1?"":"s"} · <b>${state.chars.size}</b> character${state.chars.size===1?"":"s"} tracked${first?" · connected":""}`);
+  }catch(e){
+    setStatus("Read error: " + e.message, true);
+  }finally{
+    polling = false;
+  }
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+
+const grid    = document.getElementById("grid");
+const urgent  = document.getElementById("urgent");
+const statusEl= document.getElementById("status");
+
+function setStatus(html, isErr){
+  statusEl.innerHTML = html;
+  statusEl.classList.toggle("err", !!isErr);
+}
+
+function fmt(sec){
+  if (sec <= 0) return "gone";
+  sec = Math.floor(sec);
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
+           : `${m}:${String(s).padStart(2,"0")}`;
+}
+
+function ago(ms){
+  const s = Math.floor((Date.now()-ms)/1000);
+  if (s < 60) return s + "s ago";
+  const m = Math.floor(s/60);
+  return m < 60 ? m + "m ago" : Math.floor(m/60) + "h ago";
+}
+
+function matches(target, buff){
+  const q = state.search.trim().toLowerCase();
+  if (!q) return true;
+  return target.toLowerCase().includes(q)
+      || buff.name.toLowerCase().includes(q)
+      || (buff.caster || "").toLowerCase().includes(q);
+}
+
+function render(){
+  const now = Date.now();
+  const cfg = state.cfg;
+  const names = [...state.chars.keys()].sort((a,b) => a.localeCompare(b));
+  const soon = [];
+
+  if (!names.length){
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1">Nothing yet. Run <b>/inspectbuffs</b> in game, then connect your Logs folder (or paste log text).</div>`;
+    urgent.classList.remove("on");
+    return;
+  }
+
+  let html = "";
+  for (const target of names){
+    const snap = state.chars.get(target);
+    let rows = "";
+    for (const b of snap.buffs){
+      if (!matches(target, b)) continue;
+      const remain = b.perm ? Infinity : (b.expiry - now) / 1000;
+      if (!b.perm){
+        if (remain < (cfg.keep ? -300 : -20)) continue;
+        if (cfg.hideOver > 0 && remain > cfg.hideOver * 60) continue;
+        if (remain > 0 && remain <= cfg.crit) soon.push({ target, name:b.name, remain });
+      }
+
+      let cls = "", pct = 100, label;
+      if (b.perm){ cls = "p"; label = "—"; }
+      else if (remain <= 0){ cls = "x"; label = "gone"; }
+      else {
+        pct = Math.min(100, remain / b.duration * 100);
+        cls = remain <= cfg.crit ? "c" : remain <= cfg.warn ? "w" : "";
+        if (remain <= 15) cls += " blink";
+        label = fmt(remain);
+      }
+      const cst = (cfg.caster && b.caster) ? `<span class="cst">${esc(b.caster)}</span>` : "";
+      rows += `<div class="slot ${cls}"><div class="fill" style="width:${pct.toFixed(1)}%"></div>`
+            + `<div class="nm">${esc(b.name)}${cst}</div>`
+            + `<div class="tm mono">${label}</div></div>`;
+    }
+    if (!rows && state.search) continue;
+    const age = ago(snap.stamp);
+    const stale = (now - snap.stamp) > 30*60*1000 ? " stale" : "";
+    html += `<section class="card"><h2>${esc(target)}<span class="age${stale}">${age}</span></h2>`
+          + `<div class="rows">${rows || '<div class="empty">no buffs in range</div>'}</div></section>`;
+  }
+  grid.innerHTML = html || `<div class="empty" style="grid-column:1/-1">Nothing matches that filter.</div>`;
+
+  if (cfg.urgent && soon.length){
+    soon.sort((a,b) => a.remain - b.remain);
+    urgent.classList.add("on");
+    urgent.innerHTML = soon.slice(0,8).map(u =>
+      `<div class="upill"><span class="who">${esc(u.target)}</span><span>${esc(u.name)}</span><span class="t mono">${fmt(u.remain)}</span></div>`
+    ).join("");
+  }else{
+    urgent.classList.remove("on");
+    urgent.innerHTML = "";
+  }
+}
+
+function esc(s){
+  return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+/* =========================================================================
+   POP-OUT (Document Picture-in-Picture)
+   ========================================================================= */
+
+let pipWin = null;
+async function popOut(){
+  if (!window.documentPictureInPicture){
+    setStatus("Pop-out needs Chrome or Edge. Everything else still works here.", true);
+    return;
+  }
+  if (pipWin){ pipWin.close(); return; }
+  try{
+    pipWin = await documentPictureInPicture.requestWindow({ width:420, height:560 });
+  }catch(e){
+    setStatus("Pop-out blocked: " + e.message, true);
+    return;
+  }
+  for (const sheet of document.styleSheets){
+    try{
+      const css = [...sheet.cssRules].map(r => r.cssText).join("\n");
+      const st = pipWin.document.createElement("style");
+      st.textContent = css;
+      pipWin.document.head.appendChild(st);
+    }catch(e){}
+  }
+  pipWin.document.body.classList.add("compact");
+  pipWin.document.body.append(urgent, grid);
+  document.getElementById("btnPop").textContent = "Pop in";
+  pipWin.addEventListener("pagehide", () => {
+    document.body.append(urgent, grid);
+    document.getElementById("btnPop").textContent = "Pop out";
+    pipWin = null;
+  });
+}
+
+/* =========================================================================
+   WIRING
+   ========================================================================= */
+
+function bindCfg(id, key, kind){
+  const el = document.getElementById(id);
+  if (kind === "bool"){
+    el.checked = state.cfg[key];
+    el.addEventListener("change", () => {
+      state.cfg[key] = el.checked; saveCfg();
+      if (key === "compact") document.body.classList.toggle("compact", el.checked);
+      render();
+    });
+    if (key === "compact") document.body.classList.toggle("compact", el.checked);
+  }else{
+    el.value = state.cfg[key];
+    el.addEventListener("input", () => {
+      const v = parseInt(el.value, 10);
+      state.cfg[key] = Number.isFinite(v) && v >= 0 ? v : DEFAULTS[key];
+      saveCfg(); render();
+    });
+  }
+}
+
+loadCfg();
+bindCfg("fWarn","warn","num");
+bindCfg("fCrit","crit","num");
+bindCfg("fHide","hideOver","num");
+bindCfg("fCaster","caster","bool");
+bindCfg("fUrgent","urgent","bool");
+bindCfg("fKeep","keep","bool");
+bindCfg("fCompact","compact","bool");
+
+document.getElementById("fSearch").addEventListener("input", e => {
+  state.search = e.target.value; render();
+});
+document.getElementById("btnConnect").onclick = connectLogs;
+document.getElementById("btnPop").onclick = popOut;
+document.getElementById("btnCtl").onclick = e => {
+  const open = document.getElementById("controls").classList.toggle("open");
+  e.currentTarget.setAttribute("aria-pressed", String(open));
+};
+document.getElementById("btnClear").onclick = () => {
+  state.chars.clear(); render();
+  setStatus("Cleared. Re-run /inspectbuffs to repopulate.");
+};
+
+const dlg = document.getElementById("dlgPaste");
+document.getElementById("btnPaste").onclick = () => dlg.showModal();
+document.getElementById("pasteCancel").onclick = () => dlg.close();
+document.getElementById("pasteGo").onclick = () => {
+  const text = document.getElementById("pasteBox").value;
+  const snaps = parseText(text, Date.now());
+  if (!snaps.size){
+    setStatus("No '--You sense … remaining.--' lines found in that paste.", true);
+  }else{
+    for (const [t, s] of snaps) state.chars.set(t, s);
+    setStatus(`Parsed <b>${snaps.size}</b> character${snaps.size===1?"":"s"} from paste.`);
+  }
+  dlg.close();
+  render();
+};
+
+setInterval(render, 500);
+setInterval(() => { if (state.dirHandle) pollLogs(false); }, POLL_MS);
+render();
+restoreLogs();
+</script>
+</body>
+</html>

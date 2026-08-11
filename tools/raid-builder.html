@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raid Builder — Ysu Toolbox</title>
+<style>
+/* ============================================================
+   Raid Builder — single file, no dependencies, all client-side
+   ============================================================ */
+:root{
+  --bg:#0e141c; --bg2:#121b25; --panel:#16202c; --panel2:#1b2734; --panel3:#213041;
+  --edge:#2a3849; --edge2:#3b5069;
+  --ink:#dbe5f1; --dim:#8ba0b8; --faint:#5e7288;
+  --ice:#8ad7ec; --brass:#c9a05e;
+  --ok:#79cf9d; --warn:#e0b155; --bad:#e0706b;
+  --r-tank:#6e9bd6; --r-healer:#e6dca4; --r-bard:#b98ade; --r-dps:#d98a6e; --r-support:#6fcfba;
+  --display:"Palatino Linotype","Book Antiqua",Palatino,"URW Palladio L",Georgia,serif;
+  --body:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
+  --rail:320px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--body); font-size:14px;
+  background-image:radial-gradient(1200px 600px at 70% -10%, #1b2c3d 0%, transparent 60%);
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--edge);border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- chrome ---------- */
+.topbar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:10px 16px;border-bottom:1px solid var(--edge);
+  background:linear-gradient(180deg,#1a2634,#131c26);
+  position:sticky;top:0;z-index:40;
+}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:4px}
+.brand h1{
+  font-family:var(--display);font-size:20px;font-weight:600;margin:0;letter-spacing:.02em;
+  color:#f0e6d2;
+}
+.brand .sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.16em;text-transform:uppercase}
+.spacer{flex:1}
+
+.btn{
+  background:var(--panel2);border:1px solid var(--edge2);color:var(--ink);
+  padding:6px 12px;border-radius:5px;font-size:13px;line-height:1.4;
+  transition:background .12s,border-color .12s,transform .06s;
+}
+.btn:hover{background:var(--panel3);border-color:var(--ice)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:#1d3a46;border-color:#3f7f92;color:#cdf0fa}
+.btn.primary:hover{background:#26505f;border-color:var(--ice)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.ghost{background:transparent;border-color:var(--edge)}
+:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+
+.srcchip{
+  display:flex;flex-direction:column;gap:1px;padding:4px 10px;border-radius:5px;
+  background:#101922;border:1px solid var(--edge);min-width:0;
+}
+.srcchip b{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px}
+.srcchip span{font-size:10.5px;color:var(--faint);font-family:var(--mono)}
+.srcchip.empty b{color:var(--faint);font-style:italic}
+
+/* ---------- layout ---------- */
+.wrap{display:flex;align-items:flex-start;gap:0;min-height:calc(100vh - var(--topH,53px))}
+.rail{
+  width:var(--rail);flex:0 0 var(--rail);border-right:1px solid var(--edge);
+  background:var(--bg2);position:sticky;top:var(--topH,53px);height:calc(100vh - var(--topH,53px));
+  display:flex;flex-direction:column;
+}
+.tabs{display:flex;border-bottom:1px solid var(--edge);background:#101821}
+.tab{
+  flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:9px 4px;
+  font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-family:var(--mono);
+}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--brass);border-bottom-color:var(--brass);background:#16202c}
+.tab .badge{
+  display:inline-block;min-width:16px;padding:0 4px;margin-left:4px;border-radius:8px;
+  background:var(--edge2);color:var(--ink);font-size:10px;line-height:15px;
+}
+.tab .badge.bad{background:#5c2b2b;color:#ffc9c6}
+.railbody{overflow:auto;padding:12px;flex:1}
+.main{flex:1;min-width:0;padding:14px 16px 60px}
+
+h2.sec{
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--brass);margin:0 0 8px;font-weight:600;
+  display:flex;align-items:center;gap:8px;
+}
+h2.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--edge),transparent)}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:10px;margin-bottom:12px}
+.muted{color:var(--dim)}
+.tiny{font-size:11.5px}
+.mono{font-family:var(--mono)}
+
+/* ---------- bench ---------- */
+.bench{
+  background:var(--panel);border:1px solid var(--edge);border-radius:6px;margin-bottom:14px;
+}
+.bench > header{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--edge);
+}
+.bench h3{margin:0;font-family:var(--display);font-size:15px;font-weight:600;color:#f0e6d2}
+.bench .body{padding:8px 10px;display:flex;flex-wrap:wrap;gap:5px;min-height:44px}
+.bench.drop-on{border-color:var(--ice);box-shadow:inset 0 0 0 1px var(--ice)}
+.empty-hint{color:var(--faint);font-size:12.5px;padding:6px 2px;font-style:italic}
+
+/* ---------- group grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+.grp{
+  background:var(--panel);border:1px solid var(--edge);border-radius:6px;overflow:hidden;
+  display:flex;flex-direction:column;transition:border-color .12s,box-shadow .12s;
+}
+.grp.drop-on{border-color:var(--ice);box-shadow:0 0 0 1px var(--ice),0 6px 22px rgba(0,0,0,.5)}
+.grp.flagged{border-color:#6a4a4a}
+.grp > header{
+  display:flex;align-items:center;gap:8px;padding:6px 9px;
+  background:linear-gradient(180deg,#1f2c3a,#182330);border-bottom:1px solid var(--edge);
+}
+.gno{
+  font-family:var(--display);font-size:15px;color:var(--brass);font-weight:600;
+  min-width:22px;text-align:center;
+}
+.pips{display:flex;gap:3px}
+.pip{
+  width:19px;height:15px;border-radius:3px;border:1px solid var(--edge2);
+  font-family:var(--mono);font-size:9.5px;line-height:13px;text-align:center;color:var(--faint);
+  background:#101821;
+}
+.pip.on{color:#0e141c;font-weight:700;border-color:transparent}
+.pip.t.on{background:var(--r-tank)}
+.pip.h.on{background:var(--r-healer)}
+.pip.b.on{background:var(--r-bard)}
+.pip.want{border-color:#7a4b4b;color:#c98b86}
+.cnt{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.cnt.full{color:var(--ok)}
+.cnt.over{color:var(--bad);font-weight:700}
+.slots{list-style:none;margin:0;padding:4px;display:flex;flex-direction:column;gap:3px;flex:1}
+.slot-empty{
+  height:26px;border:1px dashed #24313f;border-radius:4px;
+}
+.grp > footer{
+  padding:4px 9px 6px;font-size:11px;color:var(--warn);font-family:var(--mono);
+  display:flex;gap:8px;flex-wrap:wrap;
+}
+
+/* ---------- member chip ---------- */
+.mem{
+  display:flex;align-items:center;gap:7px;padding:3px 7px 3px 4px;border-radius:4px;
+  background:var(--panel2);border:1px solid #22303f;cursor:grab;position:relative;
+  transition:background .1s,border-color .1s;
+}
+.mem:hover{background:var(--panel3);border-color:var(--edge2)}
+.mem.dragging{opacity:.35}
+.mem.sel{border-color:var(--ice);background:#1e3644}
+.mem.teamlit{border-color:var(--team);background:#22313f}
+.mem .spine{
+  width:3px;align-self:stretch;min-height:18px;border-radius:2px;background:var(--team);flex:0 0 3px;
+}
+.mem.split .spine{
+  background:repeating-linear-gradient(135deg,var(--team) 0 3px,#0e141c 3px 6px);
+}
+.mem .cls{
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.04em;
+  width:30px;text-align:center;padding:1px 0;border-radius:3px;flex:0 0 30px;
+  color:#0e141c;background:var(--r-dps);
+}
+.cls[data-role=tank]{background:var(--r-tank)}
+.cls[data-role=healer]{background:var(--r-healer)}
+.cls[data-role=bard]{background:var(--r-bard)}
+.cls[data-role=dps]{background:var(--r-dps)}
+.cls[data-role=support]{background:var(--r-support)}
+.cls[data-role=unknown]{background:#4a5a6b;color:var(--ink)}
+.mem .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.mem .lvl{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.mem .tag{
+  font-family:var(--mono);font-size:9px;padding:1px 3px;border-radius:3px;
+  background:#3a2f1c;color:var(--brass);border:1px solid #55442a;letter-spacing:.04em;
+}
+.mem .tag.lock{background:#1d3a46;color:var(--ice);border-color:#31606f}
+.mem .tag.main{background:#3a2f1c;color:#f0d9a8}
+.mem.lowlvl .nm{color:var(--warn)}
+
+/* ---------- rotations ---------- */
+.rots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.rot{background:var(--panel);border:1px solid var(--edge);border-radius:6px;display:flex;flex-direction:column}
+.rot > header{display:flex;align-items:center;gap:8px;padding:6px 10px;
+  background:linear-gradient(180deg,#1f2c3a,#182330);border-bottom:1px solid var(--edge)}
+.rot h3{margin:0;font-family:var(--display);font-size:15px;color:#f0e6d2;font-weight:600}
+.rot .n{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.rot ol{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:3px}
+.rslot{display:flex;align-items:center;gap:7px;padding:3px 5px;border-radius:4px;
+  background:var(--panel2);border:1px solid #22303f;cursor:grab}
+.rslot:hover{background:var(--panel3)}
+.rslot.dragging{opacity:.35}
+.rslot.over{border-color:var(--ice);box-shadow:inset 0 0 0 1px var(--ice)}
+.rslot .pos{font-family:var(--mono);font-size:11.5px;color:var(--brass);width:20px;text-align:right}
+.rslot .spine{width:3px;align-self:stretch;min-height:16px;border-radius:2px;background:var(--team);flex:0 0 3px}
+.rslot .nm{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rslot .g{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.rslot .mv{background:none;border:none;color:var(--faint);padding:0 1px;font-size:11px;line-height:1}
+.rslot .mv:hover{color:var(--ice)}
+.rslot .mv:disabled{opacity:.25}
+.rslot .rm{background:none;border:none;color:var(--faint);padding:0 3px;font-size:14px;line-height:1}
+.rslot .rm:hover{color:var(--bad)}
+.rbench{padding:0 8px 8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.rbench .lbl{font-size:11.5px;color:var(--faint)}
+.rbench .gchip{cursor:pointer}
+.rbench .gchip:hover{border-color:var(--ice);color:var(--ink)}
+.rot textarea{width:calc(100% - 12px);margin:0 6px 6px;height:76px;background:#0b1119;
+  border:1px solid var(--edge2);border-radius:4px;padding:6px;color:var(--ink);
+  font-family:var(--mono);font-size:11px;line-height:1.5;resize:vertical}
+.rot .foot{display:flex;gap:6px;padding:0 6px 8px;flex-wrap:wrap;align-items:center}
+@media (max-width:860px){.rots{grid-template-columns:1fr}}
+
+/* ---------- teams panel ---------- */
+.team{border:1px solid var(--edge);border-radius:5px;padding:7px 9px;margin-bottom:7px;background:var(--panel)}
+.team.over{border-color:#6a4a4a;background:#1d1618}
+.team > .th{display:flex;align-items:center;gap:7px}
+.team .dot{width:9px;height:9px;border-radius:2px;background:var(--team);flex:0 0 9px}
+.team .tn{font-weight:600;font-size:13px}
+.team .sz{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
+.gchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.gchip{
+  font-family:var(--mono);font-size:10.5px;padding:1px 6px;border-radius:3px;
+  background:#101821;border:1px solid var(--edge2);color:var(--dim);
+}
+.gchip.hasmain{border-color:var(--brass);color:#f0d9a8}
+.gchip.bench{border-color:#6a4a4a;color:#e0a0a0}
+.team .why{font-size:11.5px;color:var(--warn);margin-top:5px;line-height:1.4}
+.gline{display:flex;gap:6px;align-items:flex-start;margin-top:5px}
+.gline .gchip{flex:0 0 auto;cursor:pointer}
+.gnames{font-size:11.5px;color:var(--dim);line-height:1.55;flex:1;min-width:0;padding-top:1px}
+.gnames b{color:#f0d9a8;font-weight:600}
+.issue .det{margin-top:5px;color:var(--dim);font-size:11.5px;line-height:1.55}
+.issue .det b{color:#f0d9a8;font-weight:600}
+
+/* ---------- issues ---------- */
+.issue{
+  display:flex;gap:8px;padding:7px 9px;border-radius:5px;margin-bottom:6px;
+  background:var(--panel);border:1px solid var(--edge);border-left-width:3px;font-size:12.5px;line-height:1.45;
+}
+.issue.err{border-left-color:var(--bad)}
+.issue.warn{border-left-color:var(--warn)}
+.issue.info{border-left-color:var(--edge2)}
+.issue .ic{font-family:var(--mono);font-size:11px;color:var(--faint);flex:0 0 auto}
+.issue b{color:#f0e6d2;font-weight:600}
+.issue a{color:var(--ice);cursor:pointer;text-decoration:underline dotted}
+
+/* ---------- rules ---------- */
+.rule{
+  display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--edge);
+  border-radius:5px;margin-bottom:6px;background:var(--panel);font-size:12.5px;
+}
+.rule.off{opacity:.45}
+.rule .rt{
+  font-family:var(--mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;
+  padding:1px 5px;border-radius:3px;background:#101821;border:1px solid var(--edge2);color:var(--dim);
+}
+.rule .rt.hard{border-color:#6a4a4a;color:#e0a0a0}
+.rule .txt{flex:1;min-width:0}
+.rule .x{background:none;border:none;color:var(--faint);padding:0 3px;font-size:15px;line-height:1}
+.rule .x:hover{color:var(--bad)}
+label.row{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:12.5px}
+label.row > span:first-child{flex:0 0 108px;color:var(--dim)}
+select,input[type=text],input[type=number]{
+  background:#101821;border:1px solid var(--edge2);border-radius:4px;padding:4px 7px;font-size:12.5px;
+  min-width:0;flex:1;
+}
+input[type=checkbox]{accent-color:var(--ice);width:15px;height:15px}
+.wgrid{display:grid;grid-template-columns:1fr 62px;gap:6px 8px;align-items:center;font-size:12.5px}
+.wgrid label{color:var(--dim)}
+.wgrid input{width:100%}
+.hint{font-size:11.5px;color:var(--faint);line-height:1.5;margin:6px 0 0}
+textarea.out{
+  width:100%;height:230px;background:#0b1119;border:1px solid var(--edge2);border-radius:5px;
+  padding:8px;font-family:var(--mono);font-size:11.5px;line-height:1.5;resize:vertical;
+}
+.btnrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kv{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0}
+.kv span:last-child{font-family:var(--mono);color:var(--dim)}
+
+/* ---------- inspector ---------- */
+.insp{position:relative}
+.insp .close{position:absolute;top:6px;right:6px;background:none;border:none;color:var(--faint);font-size:16px;line-height:1}
+.insp h3{margin:0 0 6px;font-family:var(--display);font-size:17px;color:#f0e6d2;font-weight:600}
+
+/* ---------- toast ---------- */
+#toast{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(30px);
+  background:#1d3a46;border:1px solid #3f7f92;color:#cdf0fa;padding:8px 16px;border-radius:5px;
+  font-size:13px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:99;
+}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- setup screen ---------- */
+.setup{max-width:620px;margin:8vh auto;text-align:center;padding:0 20px}
+.setup h2{font-family:var(--display);font-size:26px;color:#f0e6d2;font-weight:600;margin:0 0 10px}
+.setup p{color:var(--dim);line-height:1.6;margin:0 0 18px}
+.setup .drop{
+  border:1px dashed var(--edge2);border-radius:8px;padding:26px;background:var(--panel);
+}
+.setup .drop.drop-on{border-color:var(--ice);background:#182b36}
+.setup code{font-family:var(--mono);font-size:12px;color:var(--ice);background:#101821;padding:1px 5px;border-radius:3px}
+
+@media (max-width:860px){
+  .wrap{flex-direction:column}
+  .rail{width:100%;flex:none;position:static;height:auto;max-height:none;border-right:none;border-bottom:1px solid var(--edge)}
+  .railbody{max-height:52vh}
+  .main{padding:12px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <h1>Raid Builder</h1>
+    <span class="sub">Ysu Toolbox</span>
+  </div>
+  <div class="srcchip empty" id="chipRaid" title="The raid roster. Groups are built from this file only."><b>No raid dump</b><span>/output raid — the roster</span></div>
+  <div class="srcchip empty" id="chipGuild" title="Read only to match each box to its owner, using the guild note. Nobody is pulled into the raid from this file."><b>No guild dump</b><span>/outputfile guild — box owners</span></div>
+  <button class="btn" id="btnFolder">Choose dump folder</button>
+  <button class="btn" id="btnRescan" disabled>Rescan</button>
+  <label class="row tiny" style="margin:0;gap:5px" title="Re-check the folder every 20 seconds and load newer dumps automatically">
+    <input type="checkbox" id="chkWatch"><span style="flex:none;color:var(--dim)">Watch folder</span>
+  </label>
+  <div class="spacer"></div>
+  <button class="btn primary" id="btnBuild">Build groups</button>
+  <button class="btn" id="btnRevert" title="Put everyone back where the raid dump had them">Revert to dump</button>
+  <input type="file" id="filePick" multiple accept=".txt" hidden>
+</div>
+
+<div id="setup" class="setup">
+  <h2>Point it at your EverQuest folder</h2>
+  <p>Groups are built from the newest <code>RaidRoster_*.txt</code> — that file alone decides who is in the raid.
+     The newest guild dump is read only to see whose box is whose, from the guild note. After every
+     <code>/output raid</code> you just hit Rescan. Nothing leaves your machine.</p>
+  <div class="drop" id="dropZone">
+    <button class="btn primary" id="btnFolder2">Choose dump folder</button>
+    <p class="hint" style="margin-top:14px">
+      Folder access needs Chrome or Edge. On Firefox or Safari, <button class="btn sm ghost" id="btnFiles2">pick the two files</button>
+      or drag them here instead.
+    </p>
+  </div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <aside class="rail">
+    <div class="tabs">
+      <button class="tab on" data-tab="issues">Issues<span class="badge" id="bIssues">0</span></button>
+      <button class="tab" data-tab="teams">Teams<span class="badge" id="bTeams">0</span></button>
+      <button class="tab" data-tab="rules">Rules<span class="badge" id="bRules">0</span></button>
+      <button class="tab" data-tab="export">Export</button>
+    </div>
+    <div class="railbody" id="railBody"></div>
+  </aside>
+
+  <main class="main">
+    <div class="bench" id="bench">
+      <header>
+        <h3>Needs a group</h3>
+        <span class="cnt mono" id="benchCount">0</span>
+        <div class="spacer"></div>
+        <button class="btn sm ghost" id="btnFill">Fill open slots</button>
+      </header>
+      <div class="body" id="benchBody"></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="rots" id="rots"></div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   1. Class tables
+   ============================================================ */
+const CLASSES = {
+  "Warrior":       {abbr:"WAR", role:"tank"},
+  "Shadow Knight": {abbr:"SHD", role:"tank"},
+  "Paladin":       {abbr:"PAL", role:"tank"},
+  "Cleric":        {abbr:"CLR", role:"healer", pure:true},
+  "Druid":         {abbr:"DRU", role:"healer"},
+  "Shaman":        {abbr:"SHM", role:"healer"},
+  "Bard":          {abbr:"BRD", role:"bard"},
+  "Monk":          {abbr:"MNK", role:"dps", melee:true},
+  "Rogue":         {abbr:"ROG", role:"dps", melee:true},
+  "Berserker":     {abbr:"BER", role:"dps", melee:true},
+  "Ranger":        {abbr:"RNG", role:"dps", melee:true},
+  "Beastlord":     {abbr:"BST", role:"dps", melee:true},
+  "Magician":      {abbr:"MAG", role:"dps", caster:true},
+  "Wizard":        {abbr:"WIZ", role:"dps", caster:true},
+  "Necromancer":   {abbr:"NEC", role:"dps", caster:true},
+  "Enchanter":     {abbr:"ENC", role:"support", caster:true}
+};
+const CLASS_ALIASES = {"shadowknight":"Shadow Knight","shd":"Shadow Knight","sk":"Shadow Knight","war":"Warrior","clr":"Cleric","brd":"Bard","enc":"Enchanter"};
+function normClass(s){
+  if(!s) return null;
+  const t = String(s).trim();
+  if(CLASSES[t]) return t;
+  const l = t.toLowerCase();
+  for(const k in CLASSES) if(k.toLowerCase()===l) return k;
+  return CLASS_ALIASES[l] || null;
+}
+function info(cls){ return CLASSES[cls] || {abbr:(cls||"???").slice(0,3).toUpperCase(), role:"unknown"}; }
+
+/* how much each DPS class gains from a bard in the group.
+   Beastlord is melee but benefits least, so it fills a bard slot last. */
+const BARD_FIT = {Rogue:1, Monk:1, Ranger:1, Berserker:1, Beastlord:0.4};
+const bardFit = m => BARD_FIT[m.cls] || 0;
+const isCasterDps = m => m.ci.role==="dps" && !!m.ci.caster;
+
+const MAX_GROUPS = 12, GROUP_SIZE = 6;
+const TEAM_COLORS = ["#6e9bd6","#d98a6e","#7fce9c","#b98ade","#e0c169","#68c4c8","#e08ab0","#9fbf6a",
+                     "#c98f5a","#8a9fe0","#d0d0a0","#a0d8e8","#c4a0d8","#7aa8a0"];
+/* notes that are chatter rather than an owner's character name */
+const NOTE_STOP = /discord|need\s*main|dkp|guild|raid\s*only|inactive|banker|tradeskill|mule|alt$|^alt|wife|husband|friend|meat|only\b/i;
+
+/* ============================================================
+   2. State
+   ============================================================ */
+const S = {
+  raid: [],                 // [{name, level, cls, dumpGroup, dumpRole}]
+  guild: new Map(),         // lowername -> {name,level,cls,rank,alt,lastOn,zone,note}
+  assign: {},               // name -> 0 (bench) .. 12
+  ownerOverride: {},        // name -> owner key
+  locked: {},               // name -> true (never moved by the builder)
+  rules: [],
+  weights: {tank:60, healer:55, cleric:22, bard:50, cohesion:130, dupe:7, empty:10, bardMelee:18, clericApart:200, clericWar:35},
+  need:   {tank:true, healer:true, bard:true, meleeBard:true, clericSolo:true, clericWarrior:true},
+  groupsToUse: 0,           // 0 = auto
+  files: {raid:null, guild:null},
+  rot:    {tank:[], ch:[]},      /* order the raid leader set */
+  rotOut: {tank:[], ch:[]},      /* pulled out of the rotation */
+  tab: "issues",
+  sel: null,
+  seed: 1,
+  dirHandle: null
+};
+const LS = "ysu.raidbuilder.v1";
+
+function save(){
+  try{
+    localStorage.setItem(LS, JSON.stringify({
+      assign:S.assign, ownerOverride:S.ownerOverride, locked:S.locked, rules:S.rules,
+      weights:S.weights, need:S.need, groupsToUse:S.groupsToUse, rot:S.rot, rotOut:S.rotOut
+    }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem(LS)||"{}");
+    if(d.assign) S.assign = d.assign;
+    if(d.ownerOverride) S.ownerOverride = d.ownerOverride;
+    if(d.locked) S.locked = d.locked;
+    if(Array.isArray(d.rules)) S.rules = d.rules;
+    if(d.weights) Object.assign(S.weights, d.weights);
+    if(d.need) Object.assign(S.need, d.need);
+    if(typeof d.groupsToUse === "number") S.groupsToUse = d.groupsToUse;
+    if(d.rot) Object.assign(S.rot, d.rot);
+    if(d.rotOut) Object.assign(S.rotOut, d.rotOut);
+  }catch(e){}
+}
+
+/* ============================================================
+   3. Parsing
+   ============================================================ */
+function splitLines(txt){
+  return txt.replace(/^\uFEFF/,"").split(/\r?\n/).filter(l=>l.trim().length);
+}
+/* Raid dump: group \t name \t level \t class \t role... */
+function parseRaid(txt){
+  const out=[];
+  for(const line of splitLines(txt)){
+    const p = line.split("\t").map(s=>s.trim());
+    if(p.length < 4) continue;
+    const g = parseInt(p[0],10);
+    if(isNaN(g)) continue;
+    const name = p[1]; if(!name) continue;
+    const cls = normClass(p[3]);
+    out.push({
+      name, level: parseInt(p[2],10)||0, cls,
+      dumpGroup: Math.max(0, Math.min(MAX_GROUPS, g)),
+      dumpRole: (p[4]||"").trim()
+    });
+  }
+  return out;
+}
+/* Guild dump: name \t level \t class \t rank \t alt \t lastOn \t zone \t note ... */
+function parseGuild(txt){
+  const m = new Map();
+  for(const line of splitLines(txt)){
+    const p = line.split("\t").map(s=>s.trim());
+    if(p.length < 4) continue;
+    /* anchor on the class column so shifted layouts still parse */
+    let ci = -1;
+    for(let i=1;i<Math.min(p.length,6);i++){ if(normClass(p[i])){ ci=i; break; } }
+    if(ci < 2) continue;
+    const name = p[ci-2]; if(!name) continue;
+    m.set(name.toLowerCase(), {
+      name, level: parseInt(p[ci-1],10)||0, cls: normClass(p[ci]),
+      rank: p[ci+1]||"", alt: (p[ci+2]||"")==="A",
+      lastOn: p[ci+3]||"", zone: p[ci+4]||"", note: (p[ci+5]||"").trim()
+    });
+  }
+  return m;
+}
+function isRaidFile(n){ return /^RaidRoster[_-]/i.test(n); }
+function dumpStamp(name, lastModified){
+  const m = name.match(/-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.txt$/i);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]).getTime();
+  return lastModified || 0;
+}
+function stampText(ms){
+  if(!ms) return "";
+  const d = new Date(ms), p = n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ============================================================
+   4. Folder access (File System Access API + IndexedDB handle)
+   ============================================================ */
+const IDB = {
+  db:null,
+  open(){
+    return new Promise(res=>{
+      if(IDB.db) return res(IDB.db);
+      if(typeof indexedDB === "undefined") return res(null);
+      const r = indexedDB.open("ysu-raidbuilder",1);
+      r.onupgradeneeded = ()=> r.result.createObjectStore("kv");
+      r.onsuccess = ()=>{ IDB.db = r.result; res(IDB.db); };
+      r.onerror = ()=> res(null);
+    });
+  },
+  async put(k,v){ const db=await IDB.open(); if(!db) return;
+    return new Promise(res=>{ const t=db.transaction("kv","readwrite"); t.objectStore("kv").put(v,k); t.oncomplete=res; t.onerror=res; }); },
+  async get(k){ const db=await IDB.open(); if(!db) return null;
+    return new Promise(res=>{ const t=db.transaction("kv","readonly"); const q=t.objectStore("kv").get(k);
+      q.onsuccess=()=>res(q.result||null); q.onerror=()=>res(null); }); }
+};
+
+async function chooseFolder(){
+  if(!window.showDirectoryPicker){ toast("This browser can't read folders — pick the files instead."); return openFilePicker(); }
+  try{
+    const dir = await window.showDirectoryPicker({id:"eq-dumps", mode:"read"});
+    S.dirHandle = dir;
+    await IDB.put("dir", dir);
+    document.getElementById("btnRescan").disabled = false;
+    await scanFolder(true);
+    setWatch(document.getElementById("chkWatch").checked);
+  }catch(e){ if(e && e.name!=="AbortError") toast("Couldn't open that folder: "+e.message); }
+}
+
+async function scanFolder(announce){
+  const dir = S.dirHandle;
+  if(!dir) return;
+  try{
+    const perm = await dir.queryPermission({mode:"read"});
+    if(perm !== "granted"){
+      const p = await dir.requestPermission({mode:"read"});
+      if(p !== "granted"){ toast("Folder access was denied."); return; }
+    }
+  }catch(e){ return; }   /* permission prompts need a click — the watch timer just waits */
+  let bestRaid=null, bestGuild=null;
+  try{
+    for await (const [name, h] of dir.entries()){
+      if(h.kind !== "file" || !/\.txt$/i.test(name)) continue;
+      if(!/-\d{8}-\d{6}\.txt$/i.test(name)) continue;    // only timestamped dumps
+      const f = await h.getFile();
+      const st = dumpStamp(name, f.lastModified);
+      const rec = {name, stamp:st, file:f};
+      if(isRaidFile(name)){ if(!bestRaid || st > bestRaid.stamp) bestRaid = rec; }
+      else               { if(!bestGuild || st > bestGuild.stamp) bestGuild = rec; }
+    }
+  }catch(e){ toast("Folder read failed: "+e.message); return; }
+
+  let changed = false;
+  if(bestRaid && (!S.files.raid || bestRaid.stamp > S.files.raid.stamp || bestRaid.name !== S.files.raid.name)){
+    S.raid = parseRaid(await bestRaid.file.text());
+    S.files.raid = {name:bestRaid.name, stamp:bestRaid.stamp}; changed = true;
+  }
+  if(bestGuild && (!S.files.guild || bestGuild.stamp > S.files.guild.stamp || bestGuild.name !== S.files.guild.name)){
+    S.guild = parseGuild(await bestGuild.file.text());
+    S.files.guild = {name:bestGuild.name, stamp:bestGuild.stamp}; changed = true;
+  }
+  if(!bestRaid && !S.raid.length){ toast("No RaidRoster_*.txt in that folder yet."); }
+  if(changed){ afterLoad(); if(announce) toast("Loaded newest dumps."); }
+  else if(announce) toast("Already on the newest dumps.");
+}
+
+function openFilePicker(){ document.getElementById("filePick").click(); }
+async function loadPickedFiles(files){
+  let changed=false;
+  for(const f of files){
+    if(!/\.txt$/i.test(f.name)) continue;
+    const txt = await f.text();
+    const st = dumpStamp(f.name, f.lastModified);
+    if(isRaidFile(f.name) || /^\d+\t/.test(txt)){
+      S.raid = parseRaid(txt); S.files.raid = {name:f.name, stamp:st}; changed=true;
+    }else{
+      S.guild = parseGuild(txt); S.files.guild = {name:f.name, stamp:st}; changed=true;
+    }
+  }
+  if(changed){ afterLoad(); toast("Dumps loaded."); }
+  else toast("Those files didn't look like EQ dumps.");
+}
+
+let watchTimer=null;
+function setWatch(on){
+  clearInterval(watchTimer); watchTimer=null;
+  if(on && S.dirHandle) watchTimer = setInterval(()=>scanFolder(false), 20000);
+}
+
+/* ============================================================
+   5. Merge, owners, teams
+   ============================================================ */
+function guildRec(name){ return S.guild.get(name.toLowerCase()) || null; }
+
+/* Turn a guild note into an owner key. Returns {owner, sure} */
+function ownerFromNote(note){
+  const n = (note||"").trim();
+  if(!n) return null;
+  if(S.guild.has(n.toLowerCase())) return {owner:S.guild.get(n.toLowerCase()).name, sure:true};
+  const tokens = n.split(/[^A-Za-z]+/).filter(t=>t.length>2);
+  for(const t of tokens){
+    const g = S.guild.get(t.toLowerCase());
+    if(g) return {owner:g.name, sure:true};
+  }
+  if(NOTE_STOP.test(n)) return null;
+  if(/^[A-Za-z]{3,20}$/.test(n)) return {owner: n.charAt(0).toUpperCase()+n.slice(1).toLowerCase(), sure:false};
+  return null;
+}
+
+let ROSTER = [];   // enriched raid members
+let TEAMS  = [];   // [{owner, members:[], main, color, sure}]
+
+function rebuild(){
+  ROSTER = S.raid.map(r=>{
+    const g = guildRec(r.name);
+    const cls = r.cls || (g && g.cls) || null;
+    const rec = {
+      name: r.name,
+      cls, ci: info(cls),
+      level: r.level || (g?g.level:0),
+      dumpGroup: r.dumpGroup, dumpRole: r.dumpRole,
+      rank: g?g.rank:"", note: g?g.note:"", inGuild: !!g,
+      owner: null, ownerSure:false, isMain:false
+    };
+    let o = null;
+    if(S.ownerOverride[r.name]) o = {owner:S.ownerOverride[r.name], sure:true};
+    else if(g) o = ownerFromNote(g.note);
+    if(o){ rec.owner = o.owner; rec.ownerSure = o.sure; }
+    else { rec.owner = r.name; rec.ownerSure = true; rec.isMain = true; }
+    return rec;
+  });
+  /* owner key normalised to a canonical case */
+  const canon = new Map();
+  ROSTER.forEach(m=>{ const k=m.owner.toLowerCase(); if(!canon.has(k)) canon.set(k, m.owner); });
+  ROSTER.forEach(m=>{ m.owner = canon.get(m.owner.toLowerCase()); m.isMain = m.owner.toLowerCase()===m.name.toLowerCase(); });
+
+  const map = new Map();
+  ROSTER.forEach(m=>{
+    if(!map.has(m.owner)) map.set(m.owner, {owner:m.owner, members:[], main:null, sure:true});
+    const t = map.get(m.owner);
+    t.members.push(m);
+    if(m.isMain) t.main = m;
+    if(!m.ownerSure) t.sure = false;
+  });
+  TEAMS = [...map.values()].sort((a,b)=> b.members.length - a.members.length || a.owner.localeCompare(b.owner));
+  TEAMS.forEach((t,i)=> t.color = TEAM_COLORS[i % TEAM_COLORS.length]);
+  const tc = new Map(TEAMS.map(t=>[t.owner,t]));
+  ROSTER.forEach(m=> m.team = tc.get(m.owner));
+
+  /* keep assignments valid */
+  const live = new Set(ROSTER.map(m=>m.name));
+  Object.keys(S.assign).forEach(n=>{ if(!live.has(n)) delete S.assign[n]; });
+  ROSTER.forEach(m=>{ if(!(m.name in S.assign)) S.assign[m.name] = m.dumpGroup; });
+  syncRotations();
+}
+/* warriors tank, clerics chain-heal — nobody else belongs in either list */
+const ROT_CLASS = {tank:"Warrior", ch:"Cleric"};
+function syncRotations(){
+  for(const key in ROT_CLASS){
+    const eligible = ROSTER.filter(m=>m.cls===ROT_CLASS[key]).map(m=>m.name);
+    const live = new Set(eligible);
+    const out  = (S.rotOut[key]||[]).filter(n=>live.has(n));
+    const outS = new Set(out);
+    const kept = (S.rot[key]||[]).filter(n=>live.has(n) && !outS.has(n));
+    const keptS = new Set(kept);
+    const fresh = eligible.filter(n=>!keptS.has(n) && !outS.has(n))
+      .sort((a,b)=> (groupOf(a)||99)-(groupOf(b)||99) || a.localeCompare(b));
+    S.rot[key] = kept.concat(fresh);
+    S.rotOut[key] = out;
+  }
+}
+
+function afterLoad(){
+  rebuild();
+  document.getElementById("setup").hidden = true;
+  document.getElementById("app").hidden = false;
+  document.getElementById("btnRescan").disabled = !S.dirHandle;
+  renderAll(); save();
+}
+function byName(n){ return ROSTER.find(m=>m.name===n); }
+function groupOf(n){ return S.assign[n] || 0; }
+function groupMembers(g){ return ROSTER.filter(m=> groupOf(m.name)===g); }
+
+/* ============================================================
+   6. Scoring + auto-build
+   ============================================================ */
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0;
+  let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+
+function activeRules(){ return S.rules.filter(r=>r.enabled!==false); }
+function ruleBenched(){ return new Set(activeRules().filter(r=>r.type==="bench").map(r=>r.name)); }
+
+function scoreLayout(assign, nUsed, sitOut){
+  const W = S.weights;
+  const groups = Array.from({length:MAX_GROUPS+1},()=>[]);
+  for(const m of ROSTER){ groups[assign[m.name]||0].push(m); }
+  let score = 0;
+  const rules = activeRules();
+
+  /* a raider with no group is worse than any comp problem — this must
+     outrank cohesion, or the builder will bench people to keep a team tidy */
+  if(sitOut) for(const m of groups[0]) if(!sitOut.has(m.name)) score -= 400;
+
+  for(let g=1; g<=MAX_GROUPS; g++){
+    const mem = groups[g];
+    if(!mem.length) continue;
+    if(mem.length > GROUP_SIZE) score -= 800*(mem.length-GROUP_SIZE);
+    let tank=0, war=0, heal=0, clr=0, bard=0, meleeFit=0, casterDps=0;
+    const byCls = {};
+    for(const m of mem){
+      const r = m.ci.role;
+      if(r==="tank") tank++;
+      if(m.cls==="Warrior") war++;
+      if(r==="healer"){ heal++; if(m.cls==="Cleric") clr++; }
+      if(r==="bard") bard++;
+      meleeFit += bardFit(m);
+      if(isCasterDps(m)) casterDps++;
+      byCls[m.cls] = (byCls[m.cls]||0)+1;
+    }
+    if(S.need.tank)   score += tank ? W.tank : -W.tank;
+    if(S.need.healer) score += heal ? W.healer : -W.healer;
+    if(S.need.bard)   score += bard ? W.bard : -W.bard;
+    /* a bard's haste and attack songs only pay off on melee */
+    if(bard && S.need.meleeBard) score += W.bardMelee*(meleeFit - casterDps*0.8);
+    if(clr) score += W.cleric;                      /* a real healer beats a support healer */
+    /* clerics go one per group and want a warrior to heal */
+    if(S.need.clericSolo){ if(clr>1) score -= W.clericApart*(clr-1); }
+    else if(clr>2) score -= W.cleric*(clr-2);
+    if(clr && S.need.clericWarrior) score += war ? W.clericWar : -W.clericWar;
+    for(const c in byCls) if(byCls[c]>2) score -= W.dupe*(byCls[c]-2);
+    if(mem.length < GROUP_SIZE) score -= W.empty*(GROUP_SIZE-mem.length);
+
+    for(const r of rules){
+      const w = r.hard ? 1000 : 120;
+      if(r.type==="maxclass" && (byCls[r.cls]||0) > r.n) score -= w*((byCls[r.cls]||0)-r.n);
+      if(r.type==="groupmin" && r.group===g){
+        const have = r.cls==="__tank" ? tank : r.cls==="__healer" ? heal : (byCls[r.cls]||0);
+        if(have < r.n) score -= w*(r.n-have);
+        else score += w*0.5;
+      }
+    }
+  }
+
+  /* team cohesion: a team may legitimately need ceil(size/6) groups, no more */
+  for(const t of TEAMS){
+    const gs = new Set(t.members.map(m=>assign[m.name]||0).filter(g=>g>0));
+    if(!gs.size) continue;
+    const need = Math.ceil(t.members.filter(m=>(assign[m.name]||0)>0).length / GROUP_SIZE);
+    if(gs.size > need) score -= S.weights.cohesion*(gs.size-need);
+    /* small nudge to keep a team's groups next to each other */
+    const arr=[...gs].sort((a,b)=>a-b);
+    for(let i=1;i<arr.length;i++) score -= Math.min(6,(arr[i]-arr[i-1]-1))*2;
+  }
+
+  for(const r of rules){
+    const w = r.hard ? 1000 : 150;
+    if(r.type==="together" && r.names.length>1){
+      const gs = new Set(r.names.map(n=>assign[n]||0));
+      if(gs.size>1) score -= w*(gs.size-1);
+    }
+    if(r.type==="apart" && r.names.length>1){
+      const seen={};
+      for(const n of r.names){ const g=assign[n]||0; if(g){ if(seen[g]) score -= w; seen[g]=1; } }
+    }
+    if(r.type==="pin" && (assign[r.name]||0)!==r.group) score -= 1000;
+  }
+  return score;
+}
+
+function autoBuild(fillOnly){
+  if(!ROSTER.length) return;
+  const pinned = {}; /* name -> group, immovable */
+  for(const r of activeRules()) if(r.type==="pin" && byName(r.name)) pinned[r.name] = r.group;
+  for(const m of ROSTER) if(S.locked[m.name]) pinned[m.name] = groupOf(m.name);
+
+  const benched = new Set(activeRules().filter(r=>r.type==="bench").map(r=>r.name));
+
+  /* "group 12 needs 3 clerics" has to be seated first — no sequence of single
+     swaps gets there from a packed board, so reserve the seats up front */
+  const teamSize = {}; ROSTER.forEach(m=> teamSize[m.owner]=(teamSize[m.owner]||0)+1);
+  const matches = (m,cls)=> cls==="__tank" ? m.ci.role==="tank"
+                          : cls==="__healer" ? m.ci.role==="healer" : m.cls===cls;
+  const taken = new Set(Object.keys(pinned).concat([...benched]));
+  for(const r of activeRules().filter(x=>x.type==="groupmin").sort((a,b)=>(b.hard?1:0)-(a.hard?1:0))){
+    let have = ROSTER.filter(m=> pinned[m.name]===r.group && matches(m,r.cls)).length;
+    const cand = ROSTER.filter(m=> !taken.has(m.name) && matches(m,r.cls))
+      .sort((a,b)=> teamSize[b.owner]-teamSize[a.owner] || a.name.localeCompare(b.name));
+    for(const m of cand){
+      if(have >= r.n) break;
+      if(ROSTER.filter(x=>pinned[x.name]===r.group).length >= GROUP_SIZE) break;
+      pinned[m.name] = r.group; taken.add(m.name); have++;
+    }
+  }
+
+  const assign = {};
+  const movable = [];
+  for(const m of ROSTER){
+    if(benched.has(m.name)){ assign[m.name]=0; continue; }
+    if(m.name in pinned){ assign[m.name]=pinned[m.name]; continue; }
+    if(fillOnly && groupOf(m.name)>0){ assign[m.name]=groupOf(m.name); continue; }
+    assign[m.name]=0; movable.push(m);
+  }
+
+  const total = ROSTER.filter(m=>!benched.has(m.name)).length;
+  let nUsed = S.groupsToUse>0 ? S.groupsToUse : Math.min(MAX_GROUPS, Math.max(1, Math.ceil(total/GROUP_SIZE)));
+  /* a rule that names group 12 only makes sense if group 12 is in play */
+  for(const r of activeRules()) if((r.type==="groupmin"||r.type==="pin") && r.group>nUsed) nUsed = r.group;
+  for(const n in pinned) nUsed = Math.max(nUsed, pinned[n]);
+  /* "Groups to use" is a hard ceiling — on Auto the whole raid window is fair game */
+  const gMax = S.groupsToUse>0 ? nUsed : MAX_GROUPS;
+  const cap = g => GROUP_SIZE - Object.values(assign).filter(x=>x===g).length;
+  const sizeOf = g => ROSTER.reduce((a,m)=>a+((assign[m.name]===g)?1:0),0);
+
+  /* --- units: whole teams; a crew bigger than 6 is cut into full groups
+         (6,6,…,remainder) so the chunks tile cleanly into the 72 slots --- */
+  const roleRank = m => ({tank:0, healer:1, bard:2, support:3, dps:4, unknown:5})[m.ci.role];
+  const units = [];
+  const byTeam = new Map();
+  movable.forEach(m=>{ if(!byTeam.has(m.owner)) byTeam.set(m.owner,[]); byTeam.get(m.owner).push(m); });
+  for(const [owner, mem] of byTeam){
+    if(mem.length <= GROUP_SIZE){ units.push({owner, mem}); continue; }
+    const k = Math.ceil(mem.length/GROUP_SIZE);
+    const caps = Array.from({length:k},(_,i)=> i<k-1 ? GROUP_SIZE : mem.length-GROUP_SIZE*(k-1));
+    const chunks = Array.from({length:k},()=>[]);
+    const sorted = mem.slice().sort((a,b)=>
+      roleRank(a)-roleRank(b) ||
+      (b.cls==="Cleric") - (a.cls==="Cleric") ||
+      a.name.localeCompare(b.name));
+    /* spread the roles: each chunk should end up with its own tank, healer, bard */
+    for(const m of sorted){
+      let best=-1, bs=1e9;
+      for(let c=0;c<k;c++){
+        if(chunks[c].length >= caps[c]) continue;
+        const dup = chunks[c].filter(x=>x.ci.role===m.ci.role).length;
+        const hasBard = chunks[c].some(x=>x.ci.role==="bard");
+        let s = dup*10 + (chunks[c].length/caps[c])*3;
+        if(S.need.meleeBard && hasBard) s += isCasterDps(m) ? 6 : -6*bardFit(m);
+        if(m.cls==="Cleric" && chunks[c].some(x=>x.cls==="Cleric")) s += 40;
+        if(S.need.clericWarrior){
+          if(m.cls==="Cleric"  && chunks[c].some(x=>x.cls==="Warrior")) s -= 8;
+          if(m.cls==="Warrior" && chunks[c].some(x=>x.cls==="Cleric"))  s -= 8;
+        }
+        if(s<bs){ bs=s; best=c; }
+      }
+      if(best<0) best = chunks.findIndex(c=>c.length<GROUP_SIZE);
+      chunks[best].push(m);
+    }
+    chunks.forEach(c=>{ if(c.length) units.push({owner, mem:c}); });
+  }
+  units.sort((a,b)=> b.mem.length - a.mem.length);
+
+  /* --- greedy placement, unit by unit --- */
+  const placeOne = (m, avoidSplitOf)=>{
+    let best=-1, bestScore=-Infinity;
+    for(let g=1; g<=gMax; g++){
+      if(cap(g) < 1) continue;
+      const old = assign[m.name]; assign[m.name]=g;
+      let s = scoreLayout(assign, nUsed, benched);
+      if(g>nUsed) s -= 40;
+      assign[m.name]=old;
+      if(s>bestScore){ bestScore=s; best=g; }
+    }
+    if(best>0){ assign[m.name]=best; nUsed=Math.max(nUsed,best); }
+  };
+  for(const u of units){
+    let best=-1, bestScore=-Infinity;
+    for(let g=1; g<=gMax; g++){
+      if(cap(g) < u.mem.length) continue;
+      const trial = Object.assign({}, assign);
+      u.mem.forEach(m=> trial[m.name]=g);
+      let s = scoreLayout(trial, nUsed, benched);
+      if(g>nUsed) s -= 40;
+      /* keep a team's chunks in neighbouring group numbers */
+      for(let g2=1; g2<=MAX_GROUPS; g2++){
+        if(g2===g) continue;
+        if(ROSTER.some(m=>assign[m.name]===g2 && m.owner===u.owner)) s -= Math.abs(g-g2)*3;
+      }
+      if(s>bestScore){ bestScore=s; best=g; }
+    }
+    if(best>0){ u.mem.forEach(m=> assign[m.name]=best); nUsed=Math.max(nUsed,best); }
+    else u.mem.forEach(m=> placeOne(m));   /* no group fits the whole crew — seat them one by one */
+  }
+
+  /* --- hill climbing: swaps and moves that raise the score --- */
+  const rand = rng(S.seed);
+  const pool = ROSTER.filter(m=> !(m.name in pinned) && !benched.has(m.name));
+  let cur = scoreLayout(assign, nUsed, benched);
+  for(let it=0; it<4000 && pool.length>1; it++){
+    const a = pool[(rand()*pool.length)|0];
+    const doSwap = rand() < 0.7;
+    let undo;
+    if(doSwap){
+      const b = pool[(rand()*pool.length)|0];
+      if(a===b || assign[a.name]===assign[b.name]) continue;
+      undo = ()=>{ const t=assign[a.name]; assign[a.name]=assign[b.name]; assign[b.name]=t; };
+      undo();
+    }else{
+      const g = 1 + ((rand()*gMax)|0);
+      if(assign[a.name]===g || sizeOf(g)>=GROUP_SIZE) continue;
+      const old = assign[a.name];
+      assign[a.name]=g;
+      undo = ()=>{ assign[a.name]=old; };
+    }
+    const next = scoreLayout(assign, nUsed, benched);
+    if(next > cur) cur = next; else undo();
+  }
+
+  /* last sweep: anyone still without a group takes any open slot */
+  for(const m of ROSTER){
+    if(assign[m.name] || benched.has(m.name) || (m.name in pinned)) continue;
+    placeOne(m);
+  }
+
+  S.assign = assign;
+  renderAll(); save();
+  toast(fillOnly ? "Open slots filled." : "Groups built.");
+}
+
+/* ============================================================
+   7. Diagnostics
+   ============================================================ */
+function diagnose(){
+  const out = [];
+  const nUsed = Math.max(...ROSTER.map(m=>groupOf(m.name)), 0);
+  const benchN = groupMembers(0).length;
+  const total = ROSTER.length;
+
+  if(total > 72) out.push({k:"err", t:`Raid has <b>${total}</b> characters — EverQuest caps a raid at 72.`});
+  if(benchN) out.push({k:"warn", t:`<b>${benchN}</b> ${benchN===1?"character has":"characters have"} no group.`, go:0});
+
+  for(let g=1; g<=MAX_GROUPS; g++){
+    const mem = groupMembers(g);
+    if(!mem.length) continue;
+    if(mem.length > GROUP_SIZE) out.push({k:"err", t:`<b>Group ${g}</b> has ${mem.length} — over the 6-slot limit.`, go:g});
+    const miss = [];
+    if(S.need.tank   && !mem.some(m=>m.ci.role==="tank"))    miss.push("tank");
+    if(S.need.healer && !mem.some(m=>m.ci.role==="healer"))  miss.push("healer");
+    if(S.need.bard   && !mem.some(m=>m.ci.role==="bard"))    miss.push("bard");
+    if(miss.length) out.push({k:"warn", t:`<b>Group ${g}</b> has no ${miss.join(", no ")}.`, go:g});
+    const clrs = mem.filter(m=>m.cls==="Cleric");
+    if(S.need.clericSolo && clrs.length>1)
+      out.push({k:"warn", go:g,
+        t:`<b>Group ${g}</b> has ${clrs.length} clerics — they should never double up.`,
+        det: clrs.map(m=>m.name+" ("+m.owner+")").join(", ")});
+    if(S.need.clericWarrior && clrs.length && !mem.some(m=>m.cls==="Warrior"))
+      out.push({k:"info", go:g,
+        t:`<b>Group ${g}</b>: ${clrs.map(m=>m.name).join(", ")} has no warrior to heal.`});
+    if(S.need.meleeBard && mem.some(m=>m.ci.role==="bard")){
+      const mel = mem.filter(m=>bardFit(m)>0), cst = mem.filter(isCasterDps);
+      if(!mel.length && cst.length)
+        out.push({k:"info", t:`<b>Group ${g}</b>'s bard has only caster DPS to sing for.`, go:g});
+    }
+  }
+
+  /* the headline ask: mains and boxes that ended up apart */
+  for(const t of TEAMS){
+    const placed = t.members.filter(m=>groupOf(m.name)>0);
+    if(!placed.length) continue;
+    const gs = [...new Set(placed.map(m=>groupOf(m.name)))].sort((a,b)=>a-b);
+    const need = Math.ceil(placed.length/GROUP_SIZE);
+    const mainG = t.main ? groupOf(t.main.name) : 0;
+    let named = false;
+    if(gs.length > need){
+      named = true;
+      out.push({k: need===1?"err":"warn",
+        t:`<b>${t.owner}</b>'s ${placed.length} ${placed.length===1?"character is":"characters are"} spread over groups ${gs.join(", ")} — ${need} ${need===1?"group":"groups"} would hold them.`,
+        det: splitDetail(t)});
+    }
+    if(t.main && mainG && placed.length>1 && !placed.some(m=>m!==t.main && groupOf(m.name)===mainG)){
+      const away = teamByGroup(t).filter(r=>r.g!==mainG && r.g>0);
+      out.push({k:"warn", go:mainG,
+        t:`<b>${t.main.name}</b> (main) is alone in group ${mainG} — every box is somewhere else.`,
+        det: away.map(r=>"Group "+r.g+": "+nameList(r.ms)).join("<br>")});
+    }
+    else if(t.main && mainG && placed.length>1 && gs.length>1 && !named){
+      const away = teamByGroup(t).filter(r=>r.g!==mainG && r.g>0);
+      out.push({k:"info", go:mainG,
+        t:`<b>${t.main.name}</b> (main) is in group ${mainG}; boxes also in ${gs.filter(g=>g!==mainG).join(", ")}.`,
+        det: away.map(r=>"Group "+r.g+": "+nameList(r.ms)).join("<br>")});
+    }
+    if(t.main && !mainG && placed.length){
+      out.push({k:"warn", t:`<b>${t.main.name}</b> (main) has no group but ${placed.length} of their boxes do.`, go:0});
+    }
+  }
+
+  if(S.need.clericSolo){
+    const nClr = ROSTER.filter(m=>m.cls==="Cleric" && groupOf(m.name)>0).length;
+    const nGrp = new Set(ROSTER.map(m=>groupOf(m.name)).filter(g=>g>0)).size;
+    if(nClr > nGrp) out.push({k:"info", t:`<b>${nClr}</b> clerics across <b>${nGrp}</b> groups — some have to double up.`});
+  }
+  const noGuild = ROSTER.filter(m=>!m.inGuild);
+  if(noGuild.length) out.push({k:"info", t:`Not in the guild dump, so no box owner is known: <b>${noGuild.map(m=>m.name).join(", ")}</b>. Set owners in the Teams tab.`});
+  const unsure = TEAMS.filter(t=>!t.sure && t.members.length>1);
+  if(unsure.length) out.push({k:"info", t:`Owner guessed from a free-text note: <b>${unsure.map(t=>t.owner).join(", ")}</b>. Worth a check.`});
+  const noCls = ROSTER.filter(m=>!m.cls);
+  if(noCls.length) out.push({k:"info", t:`No class in either dump (anonymous?): <b>${noCls.map(m=>m.name).join(", ")}</b>.`});
+  const low = ROSTER.filter(m=>m.level && m.level < 55);
+  if(low.length) out.push({k:"info", t:`Under level 55: <b>${low.map(m=>m.name+" ("+m.level+")").join(", ")}</b>.`});
+
+  for(const r of activeRules()){
+    if(r.type==="together"){
+      const gs=[...new Set(r.names.map(n=>groupOf(n)))];
+      if(gs.length>1) out.push({k:r.hard?"err":"warn", t:`Rule: <b>${r.names.join(" + ")}</b> should share a group, but they're in ${gs.join(", ")}.`});
+    }
+    if(r.type==="apart"){
+      const seen={};
+      for(const n of r.names){ const g=groupOf(n); if(g&&seen[g]) out.push({k:r.hard?"err":"warn", t:`Rule: <b>${n}</b> and <b>${seen[g]}</b> should not share group ${g}.`, go:g}); if(g) seen[g]=n; }
+    }
+    if(r.type==="pin" && byName(r.name) && groupOf(r.name)!==r.group)
+      out.push({k:"err", t:`Rule: <b>${r.name}</b> is pinned to group ${r.group} but sits in ${groupOf(r.name)||"no group"}.`});
+    if(r.type==="groupmin"){
+      const mem=groupMembers(r.group);
+      const have = r.cls==="__tank" ? mem.filter(m=>m.ci.role==="tank").length
+                 : r.cls==="__healer" ? mem.filter(m=>m.ci.role==="healer").length
+                 : mem.filter(m=>m.cls===r.cls).length;
+      if(have < r.n) out.push({k:r.hard?"err":"warn", t:`Rule: group ${r.group} wants ${r.n}× ${clsLabel(r.cls)} — has ${have}.`, go:r.group});
+    }
+    if(r.type==="maxclass"){
+      for(let g=1;g<=MAX_GROUPS;g++){
+        const n = groupMembers(g).filter(m=>m.cls===r.cls).length;
+        if(n>r.n) out.push({k:r.hard?"err":"warn", t:`Rule: group ${g} has ${n}× ${r.cls} (max ${r.n}).`, go:g});
+      }
+    }
+  }
+  return out;
+}
+/* who sits where for one crew, main marked — used by both the issue list and the Teams tab */
+function teamByGroup(t){
+  const byG = new Map();
+  t.members.forEach(m=>{ const g=groupOf(m.name); if(!byG.has(g)) byG.set(g,[]); byG.get(g).push(m); });
+  return [...byG.entries()].sort((a,b)=>a[0]-b[0]).map(([g,ms])=>({
+    g, ms: ms.sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || a.name.localeCompare(b.name))
+  }));
+}
+function nameList(ms){
+  return ms.map(m=> m.isMain ? "<b>"+m.name+"</b> (main)" : m.name).join(", ");
+}
+function splitDetail(t){
+  return teamByGroup(t).map(r=> (r.g ? "Group "+r.g : "No group") + ": " + nameList(r.ms)).join("<br>");
+}
+
+function clsLabel(c){ return c==="__tank"?"any tank" : c==="__healer"?"any healer" : c; }
+
+/* ============================================================
+   8. Rendering
+   ============================================================ */
+const $ = s=>document.querySelector(s);
+function el(tag, cls, txt){ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; }
+
+function memberChip(m){
+  const li = el("li","mem");
+  li.dataset.name = m.name;
+  li.draggable = true;
+  li.style.setProperty("--team", m.team.color);
+  const placed = new Set(m.team.members.map(x=>groupOf(x.name)).filter(g=>g>0));
+  const need = Math.ceil(m.team.members.filter(x=>groupOf(x.name)>0).length/GROUP_SIZE);
+  if(placed.size > need) li.classList.add("split");
+  if(S.sel===m.name) li.classList.add("sel");
+  if(m.level && m.level<55) li.classList.add("lowlvl");
+
+  li.appendChild(el("span","spine"));
+  const c = el("span","cls", m.ci.abbr); c.dataset.role = m.ci.role; li.appendChild(c);
+  li.appendChild(el("span","nm", m.name));
+  if(m.level) li.appendChild(el("span","lvl", String(m.level)));
+  if(m.isMain && m.team.members.length>1) li.appendChild(el("span","tag main","MAIN"));
+  if(/raid leader/i.test(m.dumpRole)) li.appendChild(el("span","tag","RL"));
+  else if(/group leader/i.test(m.dumpRole)) li.appendChild(el("span","tag","GL"));
+  if(S.locked[m.name]) li.appendChild(el("span","tag lock","LOCK"));
+  li.title = `${m.name} — ${m.cls||"unknown class"}${m.level?" "+m.level:""}\nTeam: ${m.owner}${m.isMain?" (this is the main)":""}${m.note?"\nNote: "+m.note:""}`;
+  return li;
+}
+
+function renderGrid(){
+  const grid = $("#grid"); grid.innerHTML = "";
+  const rules = activeRules();
+  for(let g=1; g<=MAX_GROUPS; g++){
+    const mem = groupMembers(g);
+    const sec = el("section","grp"); sec.dataset.g = g;
+    const head = el("header");
+    head.appendChild(el("span","gno", String(g)));
+    const pips = el("span","pips");
+    const has = {
+      t: mem.some(m=>m.ci.role==="tank"),
+      h: mem.some(m=>m.ci.role==="healer"),
+      b: mem.some(m=>m.ci.role==="bard")
+    };
+    const wants = {t:S.need.tank, h:S.need.healer, b:S.need.bard};
+    [["t","T"],["h","H"],["b","B"]].forEach(([k,lbl])=>{
+      const p = el("span","pip "+k, lbl);
+      if(has[k]) p.classList.add("on");
+      else if(wants[k] && mem.length) p.classList.add("want");
+      p.title = {t:"Tank",h:"Healer",b:"Bard"}[k] + (has[k]?" present":" missing");
+      pips.appendChild(p);
+    });
+    head.appendChild(pips);
+    const cnt = el("span","cnt", mem.length+"/6");
+    if(mem.length===GROUP_SIZE) cnt.classList.add("full");
+    if(mem.length>GROUP_SIZE) cnt.classList.add("over");
+    head.appendChild(cnt);
+    sec.appendChild(head);
+
+    const ul = el("ul","slots");
+    mem.sort((a,b)=> ({tank:0,healer:1,bard:2,support:3,dps:4,unknown:5})[a.ci.role]-({tank:0,healer:1,bard:2,support:3,dps:4,unknown:5})[b.ci.role] || a.name.localeCompare(b.name));
+    mem.forEach(m=> ul.appendChild(memberChip(m)));
+    for(let i=mem.length; i<GROUP_SIZE; i++) ul.appendChild(el("li","slot-empty"));
+    sec.appendChild(ul);
+
+    const flags = [];
+    if(mem.length){
+      if(S.need.tank && !has.t) flags.push("no tank");
+      if(S.need.healer && !has.h) flags.push("no healer");
+      if(S.need.bard && !has.b) flags.push("no bard");
+      const clrN = mem.filter(m=>m.cls==="Cleric").length;
+      if(S.need.clericSolo && clrN>1) flags.push(clrN+" clerics");
+      if(S.need.clericWarrior && clrN && !mem.some(m=>m.cls==="Warrior")) flags.push("cleric, no warrior");
+      for(const r of rules){
+        if(r.type==="maxclass"){ const n=mem.filter(m=>m.cls===r.cls).length; if(n>r.n) flags.push(`${n}× ${r.cls}`); }
+        if(r.type==="groupmin" && r.group===g){
+          const have = r.cls==="__tank"?mem.filter(m=>m.ci.role==="tank").length
+                    : r.cls==="__healer"?mem.filter(m=>m.ci.role==="healer").length
+                    : mem.filter(m=>m.cls===r.cls).length;
+          if(have<r.n) flags.push(`wants ${r.n}× ${clsLabel(r.cls)}`);
+        }
+      }
+    }
+    if(flags.length){ sec.classList.add("flagged"); const f=el("footer"); flags.forEach(x=>f.appendChild(el("span",null,x))); sec.appendChild(f); }
+    grid.appendChild(sec);
+  }
+  const bench = groupMembers(0);
+  const bb = $("#benchBody"); bb.innerHTML="";
+  $("#benchCount").textContent = bench.length ? bench.length+" waiting" : "everyone placed";
+  if(!bench.length) bb.appendChild(el("div","empty-hint","Nobody is sitting out. Drag a name here to bench them."));
+  bench.sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=>{
+    const chip = memberChip(m); chip.style.width="188px"; bb.appendChild(chip);
+  });
+  wireDnD();
+}
+
+function renderRail(){
+  const b = $("#railBody"); b.innerHTML = "";
+  const issues = diagnose();
+  const errs = issues.filter(i=>i.k!=="info").length;
+  const bi = $("#bIssues"); bi.textContent = errs; bi.classList.toggle("bad", errs>0);
+  $("#bTeams").textContent = TEAMS.length;
+  $("#bRules").textContent = S.rules.length;
+
+  if(S.sel){ b.appendChild(inspector(byName(S.sel))); }
+
+  if(S.tab==="issues"){
+    b.appendChild(sectionTitle("What needs attention"));
+    if(!issues.length) b.appendChild(el("div","empty-hint","Every group is legal and no team is split. Good to go."));
+    issues.forEach(i=>{
+      const d = el("div","issue "+i.k);
+      d.appendChild(el("span","ic", i.k==="err"?"✕":i.k==="warn"?"!":"i"));
+      const t = el("div"); t.innerHTML = i.t;
+      if(i.det){ const dt = el("div","det"); dt.innerHTML = i.det; t.appendChild(dt); }
+      d.appendChild(t);
+      if(i.go!==undefined){ d.style.cursor="pointer"; d.onclick=()=>jumpTo(i.go); }
+      b.appendChild(d);
+    });
+  }
+
+  if(S.tab==="teams"){
+    b.appendChild(sectionTitle("Teams (main + boxes)"));
+    const p = el("p","hint","Owner comes from the guild dump note. Click a team to highlight it on the board; use Reassign if a note was wrong.");
+    b.appendChild(p);
+    TEAMS.forEach(t=>{
+      const placed = t.members.filter(m=>groupOf(m.name)>0);
+      const gs = [...new Set(placed.map(m=>groupOf(m.name)))].sort((a,b)=>a-b);
+      const need = Math.ceil(placed.length/GROUP_SIZE);
+      const over = gs.length > need;
+      const d = el("div","team"+(over?" over":""));
+      d.style.setProperty("--team", t.color);
+      const th = el("div","th");
+      th.appendChild(el("span","dot"));
+      th.appendChild(el("span","tn", t.owner + (t.sure?"":" ?")));
+      th.appendChild(el("span","sz", t.members.length+" toon"+(t.members.length===1?"":"s")));
+      d.appendChild(th);
+      teamByGroup(t).forEach(r=>{
+        const line = el("div","gline");
+        const c = el("span","gchip", r.g ? "G"+r.g : "none");
+        if(r.g===0) c.classList.add("bench");
+        if(t.main && r.g && groupOf(t.main.name)===r.g) c.classList.add("hasmain");
+        c.onclick = e=>{ e.stopPropagation(); jumpTo(r.g); };
+        line.appendChild(c);
+        const nm = el("span","gnames"); nm.innerHTML = nameList(r.ms);
+        line.appendChild(nm);
+        d.appendChild(line);
+      });
+      if(over) d.appendChild(el("div","why", `Split across ${gs.length} groups; ${need} would do.`));
+      if(!t.main && t.members.length>1) d.appendChild(el("div","why", `${t.owner} isn't in this raid — these are boxes only.`));
+      d.onclick = ()=> highlightTeam(t.owner);
+      b.appendChild(d);
+    });
+    /* reassign control */
+    const c = el("div","card");
+    c.appendChild(sectionTitle("Fix an owner"));
+    const sel1 = el("select"); ROSTER.slice().sort((a,b)=>a.name.localeCompare(b.name))
+      .forEach(m=> sel1.appendChild(new Option(m.name+"  ("+m.owner+")", m.name)));
+    const inp = el("input"); inp.type="text"; inp.placeholder="owner's main name";
+    const l1 = el("label","row"); l1.appendChild(el("span",null,"Character")); l1.appendChild(sel1);
+    const l2 = el("label","row"); l2.appendChild(el("span",null,"Belongs to")); l2.appendChild(inp);
+    c.appendChild(l1); c.appendChild(l2);
+    const row = el("div","btnrow");
+    const ok = el("button","btn primary","Set owner");
+    ok.onclick = ()=>{ const v=inp.value.trim(); if(!v) return;
+      S.ownerOverride[sel1.value]=v; rebuild(); renderAll(); save(); toast(sel1.value+" → "+v); };
+    const clr = el("button","btn ghost","Clear override");
+    clr.onclick = ()=>{ delete S.ownerOverride[sel1.value]; rebuild(); renderAll(); save(); };
+    row.appendChild(ok); row.appendChild(clr); c.appendChild(row);
+    b.appendChild(c);
+  }
+
+  if(S.tab==="rules") renderRules(b);
+  if(S.tab==="export") renderExport(b);
+}
+function sectionTitle(t){ return el("h2","sec",t); }
+
+function inspector(m){
+  if(!m) return el("div");
+  const c = el("div","card insp");
+  const x = el("button","close","×"); x.onclick=()=>{ S.sel=null; renderAll(); }; c.appendChild(x);
+  c.appendChild(el("h3", null, m.name));
+  const rows = [
+    ["Class", (m.cls||"unknown") + (m.level?" · "+m.level:"")],
+    ["Team", m.owner + (m.isMain?" (main)":"")],
+    ["Guild rank", m.rank || "—"],
+    ["Note", m.note || "—"],
+    ["Group", groupOf(m.name) ? "Group "+groupOf(m.name) : "no group"]
+  ];
+  rows.forEach(([k,v])=>{ const r=el("div","kv"); r.appendChild(el("span",null,k)); r.appendChild(el("span",null,v)); c.appendChild(r); });
+  const row = el("div","btnrow");
+  const lock = el("button","btn sm", S.locked[m.name] ? "Unlock" : "Lock in place");
+  lock.onclick = ()=>{ if(S.locked[m.name]) delete S.locked[m.name]; else S.locked[m.name]=true; renderAll(); save(); };
+  const bench = el("button","btn sm ghost", groupOf(m.name)?"Bench":"To group 1");
+  bench.onclick = ()=>{ move(m.name, groupOf(m.name)?0:1); };
+  row.appendChild(lock); row.appendChild(bench); c.appendChild(row);
+  c.appendChild(el("p","hint","Locked characters are never moved by Build groups."));
+  return c;
+}
+
+/* ---------- rules tab ---------- */
+function ruleText(r){
+  switch(r.type){
+    case "maxclass": return `At most ${r.n} × ${r.cls} per group`;
+    case "groupmin": return `Group ${r.group} needs ${r.n} × ${clsLabel(r.cls)}`;
+    case "pin":      return `${r.name} stays in group ${r.group}`;
+    case "together": return `${r.names.join(" + ")} share a group`;
+    case "apart":    return `${r.names.join(" / ")} in different groups`;
+    case "bench":    return `${r.name} sits out`;
+  }
+  return r.type;
+}
+function renderRules(b){
+  b.appendChild(sectionTitle("Group makeup"));
+  const nc = el("div","card");
+  [["tank","Every group: a tank (WAR / SHD / PAL)"],["healer","Every group: a healer (CLR / DRU / SHM)"],
+   ["bard","Every group: a bard"],
+   ["clericSolo","One cleric per group, never two"],
+   ["clericWarrior","Pair each cleric with a warrior"],
+   ["meleeBard","Put melee DPS with the bards, casters elsewhere"]].forEach(([k,lbl])=>{
+    const l = el("label","row"); const cb=el("input"); cb.type="checkbox"; cb.checked=S.need[k];
+    cb.onchange=()=>{ S.need[k]=cb.checked; renderAll(); save(); };
+    l.appendChild(cb); const s=el("span",null,lbl); s.style.flex="1"; l.appendChild(s); nc.appendChild(l);
+  });
+  const gl = el("label","row");
+  gl.appendChild(el("span",null,"Groups to use"));
+  const gsel = el("select"); gsel.appendChild(new Option("Auto","0"));
+  for(let i=1;i<=MAX_GROUPS;i++) gsel.appendChild(new Option(String(i), String(i)));
+  gsel.value = String(S.groupsToUse);
+  gsel.onchange = ()=>{ S.groupsToUse = +gsel.value; save(); };
+  gl.appendChild(gsel); nc.appendChild(gl);
+  b.appendChild(nc);
+
+  b.appendChild(sectionTitle("Your rules"));
+  if(!S.rules.length) b.appendChild(el("div","empty-hint","No rules yet. Add one below."));
+  S.rules.forEach((r,i)=>{
+    const d = el("div","rule"+(r.enabled===false?" off":""));
+    const cb = el("input"); cb.type="checkbox"; cb.checked=r.enabled!==false;
+    cb.onchange=()=>{ r.enabled=cb.checked; renderAll(); save(); };
+    d.appendChild(cb);
+    const t = el("span","rt"+(r.hard?" hard":""), r.hard?"must":"prefer");
+    t.title = "Click to switch between a hard requirement and a preference";
+    t.onclick = ()=>{ r.hard=!r.hard; renderAll(); save(); };
+    t.style.cursor="pointer";
+    d.appendChild(t);
+    d.appendChild(el("span","txt", ruleText(r)));
+    const x = el("button","x","×"); x.onclick=()=>{ S.rules.splice(i,1); renderAll(); save(); }; d.appendChild(x);
+    b.appendChild(d);
+  });
+
+  /* add-rule form */
+  const c = el("div","card");
+  c.appendChild(sectionTitle("Add a rule"));
+  const tsel = el("select");
+  [["groupmin","A group needs N of a class"],["maxclass","Cap a class per group"],
+   ["pin","Pin a character to a group"],["together","Keep characters together"],
+   ["apart","Keep characters apart"],["bench","Sit a character out"]]
+   .forEach(([v,l])=> tsel.appendChild(new Option(l,v)));
+  const l0 = el("label","row"); l0.appendChild(el("span",null,"Rule")); l0.appendChild(tsel); c.appendChild(l0);
+  const fields = el("div"); c.appendChild(fields);
+
+  const charSel = (multi)=>{
+    const s = el("select"); if(multi){ s.multiple=true; s.size=6; s.style.minHeight="110px"; }
+    ROSTER.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(m=> s.appendChild(new Option(m.name+" ("+m.ci.abbr+")", m.name)));
+    return s;
+  };
+  const groupSel = ()=>{ const s=el("select"); for(let i=1;i<=MAX_GROUPS;i++) s.appendChild(new Option("Group "+i, String(i))); return s; };
+  const clsSel = (extra)=>{ const s=el("select");
+    if(extra){ s.appendChild(new Option("Any tank","__tank")); s.appendChild(new Option("Any healer","__healer")); }
+    Object.keys(CLASSES).forEach(k=> s.appendChild(new Option(k,k))); return s; };
+
+  let inputs = {};
+  function drawFields(){
+    fields.innerHTML=""; inputs={};
+    const add=(lbl,node)=>{ const l=el("label","row"); l.appendChild(el("span",null,lbl)); l.appendChild(node); fields.appendChild(l); return node; };
+    const t = tsel.value;
+    if(t==="groupmin"){ inputs.group=add("Group",groupSel()); inputs.cls=add("Class",clsSel(true));
+      inputs.n=add("How many", Object.assign(el("input"),{type:"number",value:"2",min:"1",max:"6"})); }
+    if(t==="maxclass"){ inputs.cls=add("Class",clsSel(false));
+      inputs.n=add("Max per group", Object.assign(el("input"),{type:"number",value:"2",min:"0",max:"6"})); }
+    if(t==="pin"){ inputs.name=add("Character",charSel(false)); inputs.group=add("Group",groupSel()); }
+    if(t==="together"||t==="apart"){ inputs.names=add("Characters",charSel(true));
+      fields.appendChild(el("p","hint","Ctrl-click or drag to select more than one.")); }
+    if(t==="bench"){ inputs.name=add("Character",charSel(false)); }
+  }
+  tsel.onchange = drawFields; drawFields();
+
+  const hardL = el("label","row"); const hardCb=el("input"); hardCb.type="checkbox";
+  hardL.appendChild(hardCb); const hs=el("span",null,"Treat as a hard requirement"); hs.style.flex="1"; hardL.appendChild(hs);
+  c.appendChild(hardL);
+
+  const addBtn = el("button","btn primary","Add rule");
+  addBtn.onclick = ()=>{
+    const t = tsel.value; const r = {type:t, enabled:true, hard:hardCb.checked};
+    if(t==="groupmin"){ r.group=+inputs.group.value; r.cls=inputs.cls.value; r.n=+inputs.n.value; }
+    if(t==="maxclass"){ r.cls=inputs.cls.value; r.n=+inputs.n.value; }
+    if(t==="pin"){ r.name=inputs.name.value; r.group=+inputs.group.value; }
+    if(t==="together"||t==="apart"){
+      r.names=[...inputs.names.selectedOptions].map(o=>o.value);
+      if(r.names.length<2){ toast("Pick at least two characters."); return; }
+    }
+    if(t==="bench"){ r.name=inputs.name.value; }
+    S.rules.push(r); renderAll(); save(); toast("Rule added.");
+  };
+  const row = el("div","btnrow"); row.appendChild(addBtn); c.appendChild(row);
+  b.appendChild(c);
+
+  /* weights */
+  const w = el("div","card");
+  w.appendChild(sectionTitle("How hard to push"));
+  const wg = el("div","wgrid");
+  [["tank","Tank in every group"],["healer","Healer in every group"],["bard","Bard in every group"],
+   ["cleric","Prefer a cleric over a druid/shaman"],["clericApart","Never two clerics in a group"],
+   ["clericWar","Cleric beside a warrior"],["bardMelee","Melee DPS beside a bard"],
+   ["cohesion","Keep a team together"],["dupe","Avoid stacking one class"]]
+  .forEach(([k,lbl])=>{
+    wg.appendChild(el("label",null,lbl));
+    const i = el("input"); i.type="number"; i.value=S.weights[k]; i.min="0"; i.max="500";
+    i.onchange=()=>{ S.weights[k]=+i.value||0; save(); };
+    wg.appendChild(i);
+  });
+  w.appendChild(wg);
+  w.appendChild(el("p","hint","Higher wins when two goals collide. Cohesion above the role numbers keeps boxes together even if a group ends up without a bard. Beastlords count as melee but rank last, so they give up a bard slot to a rogue or monk. Keeping clerics apart is set above cohesion, so it will split a box crew rather than double up two clerics."));
+  b.appendChild(w);
+}
+
+/* ---------- export tab ---------- */
+function layoutText(){
+  const L = [];
+  L.push(`Raid layout — ${new Date().toLocaleString()}`);
+  if(S.files.raid) L.push(`from ${S.files.raid.name}`);
+  L.push("");
+  for(let g=1; g<=MAX_GROUPS; g++){
+    const mem = groupMembers(g); if(!mem.length) continue;
+    L.push(`Group ${g}`);
+    mem.forEach(m=> L.push(`   ${(m.ci.abbr).padEnd(4)} ${m.name.padEnd(16)} ${m.owner!==m.name?"("+m.owner+")":""}`));
+    L.push("");
+  }
+  const b = groupMembers(0);
+  if(b.length){ L.push("No group:"); b.forEach(m=>L.push(`   ${m.ci.abbr.padEnd(4)} ${m.name}`)); }
+  return L.join("\n");
+}
+function moveList(){
+  const moves = ROSTER.filter(m=> groupOf(m.name) !== m.dumpGroup)
+    .sort((a,b)=> groupOf(a.name)-groupOf(b.name) || a.name.localeCompare(b.name));
+  if(!moves.length) return "Nothing to move — the board matches the raid dump.";
+  const L = [`${moves.length} move${moves.length===1?"":"s"} to make in the raid window:`,""];
+  moves.forEach(m=>{
+    const from = m.dumpGroup ? "group "+m.dumpGroup : "unassigned";
+    const to   = groupOf(m.name) ? "group "+groupOf(m.name) : "unassigned";
+    L.push(`  ${m.name.padEnd(16)} ${from}  →  ${to}`);
+  });
+  return L.join("\n");
+}
+function csvText(){
+  const rows = [["group","name","class","level","team","is_main","locked"]];
+  ROSTER.slice().sort((a,b)=> groupOf(a.name)-groupOf(b.name) || a.name.localeCompare(b.name))
+    .forEach(m=> rows.push([groupOf(m.name), m.name, m.cls||"", m.level||"", m.owner, m.isMain?"yes":"", S.locked[m.name]?"yes":""]));
+  return rows.map(r=> r.map(v=>{ v=String(v); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }).join(",")).join("\n");
+}
+function renderExport(b){
+  b.appendChild(sectionTitle("Take it with you"));
+  const ta = el("textarea","out"); ta.readOnly = true; ta.value = layoutText();
+  const row = el("div","btnrow");
+  const mk = (label, fn)=>{ const x=el("button","btn sm",label); x.onclick=()=>{ ta.value=fn(); }; return x; };
+  row.appendChild(mk("Group list", layoutText));
+  row.appendChild(mk("Move list", moveList));
+  row.appendChild(mk("CSV", csvText));
+  row.appendChild(mk("Rotations", ()=> ["tank","ch"].map(rsayLines).filter(Boolean).join("\n\n") || "No warriors or clerics in this raid."));
+  b.appendChild(row);
+  b.appendChild(ta);
+  const row2 = el("div","btnrow");
+  const cp = el("button","btn primary","Copy to clipboard");
+  cp.onclick = async ()=>{ try{ await navigator.clipboard.writeText(ta.value); toast("Copied."); }
+    catch(e){ ta.select(); document.execCommand("copy"); toast("Copied."); } };
+  const dl = el("button","btn","Download");
+  dl.onclick = ()=>{
+    const isCsv = ta.value.startsWith("group,name");
+    const blob = new Blob([ta.value], {type:"text/plain"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "raid-layout." + (isCsv?"csv":"txt");
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+  row2.appendChild(cp); row2.appendChild(dl); b.appendChild(row2);
+  b.appendChild(el("p","hint","Move list is the one to keep on screen while you drag people in the raid window — it only lists what changed."));
+}
+
+/* ---------- rotations ---------- */
+const ROT_META = {
+  tank:{title:"Tank rotation", label:"TANK ROTATION", cls:"Warrior"},
+  ch:  {title:"Complete heal chain", label:"CH ROTATION", cls:"Cleric"}
+};
+/* EQ cuts a chat line off at 255 characters, so long chains get split
+   across several /rsay lines rather than silently truncated in raid chat */
+function rsayLines(key){
+  const meta = ROT_META[key], names = S.rot[key] || [];
+  if(!names.length) return "";
+  const lines = []; let cur = "";
+  names.forEach((n,i)=>{
+    const piece = (i+1)+" "+n;
+    const cand  = cur ? cur+" > "+piece : meta.label+": "+piece;
+    if(cand.length > 195){ lines.push(cur); cur = meta.label+" cont: "+piece; }
+    else cur = cand;
+  });
+  if(cur) lines.push(cur);
+  return lines.map(l=>"/rsay "+l).join("\n");
+}
+function rotShuffle(key){
+  const a = S.rot[key];
+  if(a.length < 2) return;
+  const before = a.join("|");
+  for(let pass=0; pass<6; pass++){
+    for(let i=a.length-1; i>0; i--){                 /* Fisher-Yates */
+      const j = Math.floor(Math.random()*(i+1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    if(a.join("|") !== before) break;                /* never hand back the same order */
+  }
+  renderRots(); save();
+  toast(ROT_META[key].title + " shuffled.");
+}
+function rotMove(key, i, d){
+  const a = S.rot[key], j = i+d;
+  if(j<0 || j>=a.length) return;
+  const t = a[i]; a[i] = a[j]; a[j] = t;
+  renderRots(); save();
+}
+function renderRots(){
+  const host = document.getElementById("rots");
+  host.innerHTML = "";
+  for(const key of ["tank","ch"]){
+    const meta = ROT_META[key];
+    const names = S.rot[key] || [], out = S.rotOut[key] || [];
+    const box = el("section","rot"); box.dataset.rot = key;
+    const head = el("header");
+    head.appendChild(el("h3", null, meta.title));
+    head.appendChild(el("span","n", names.length ? names.length+" "+meta.cls.toLowerCase()+(names.length===1?"":"s") : "none in the raid"));
+    box.appendChild(head);
+
+    const ol = el("ol");
+    if(!names.length){
+      ol.appendChild(el("div","empty-hint", out.length
+        ? "Everyone is sitting out — click a name below to put them back in."
+        : "No "+meta.cls.toLowerCase()+" in this raid dump."));
+    }
+    names.forEach((n,i)=>{
+      const m = byName(n);
+      const li = el("li","rslot"); li.draggable = true; li.dataset.i = i;
+      li.appendChild(el("span","pos", String(i+1)));
+      const sp = el("span","spine"); if(m) sp.style.setProperty("--team", m.team.color); li.appendChild(sp);
+      li.appendChild(el("span","nm", n));
+      li.appendChild(el("span","g", groupOf(n) ? "G"+groupOf(n) : "no grp"));
+      const up = el("button","mv","\u25B2"); up.title="Move up"; up.disabled = i===0;
+      up.onclick = e=>{ e.stopPropagation(); rotMove(key,i,-1); };
+      const dn = el("button","mv","\u25BC"); dn.title="Move down"; dn.disabled = i===names.length-1;
+      dn.onclick = e=>{ e.stopPropagation(); rotMove(key,i,1); };
+      const rm = el("button","rm","\u00D7"); rm.title="Take out of the rotation";
+      rm.onclick = e=>{ e.stopPropagation(); S.rot[key].splice(i,1); S.rotOut[key].push(n); renderRots(); save(); };
+      li.appendChild(up); li.appendChild(dn); li.appendChild(rm);
+      li.onclick = ()=>{ S.sel = n; renderAll(); jumpTo(groupOf(n)); };
+      ol.appendChild(li);
+    });
+    box.appendChild(ol);
+
+    if(out.length){
+      const bn = el("div","rbench");
+      bn.appendChild(el("span","lbl","Out:"));
+      out.forEach((n,i)=>{
+        const c = el("span","gchip", n+" +"); c.title = "Put back in the rotation";
+        c.onclick = ()=>{ S.rotOut[key].splice(i,1); S.rot[key].push(n); renderRots(); save(); };
+        bn.appendChild(c);
+      });
+      box.appendChild(bn);
+    }
+
+    const ta = el("textarea"); ta.value = rsayLines(key);
+    ta.spellcheck = false;
+    ta.placeholder = "Nothing to paste yet.";
+    box.appendChild(ta);
+    const foot = el("div","foot");
+    const cp = el("button","btn sm primary","Copy for raid chat");
+    cp.onclick = async ()=>{
+      if(!ta.value.trim()) return;
+      try{ await navigator.clipboard.writeText(ta.value); }
+      catch(e){ ta.select(); document.execCommand("copy"); }
+      toast("Copied — paste one line at a time.");
+    };
+    const sh = el("button","btn sm","Randomize");
+    sh.title = "Shuffle the running order";
+    sh.disabled = names.length < 2;
+    sh.onclick = ()=> rotShuffle(key);
+    const rs = el("button","btn sm ghost","Reset order");
+    rs.title = "Back to group order, everyone back in";
+    rs.onclick = ()=>{ S.rot[key]=[]; S.rotOut[key]=[]; syncRotations(); renderRots(); save(); };
+    foot.appendChild(cp); foot.appendChild(sh); foot.appendChild(rs);
+    box.appendChild(foot);
+    host.appendChild(box);
+  }
+  wireRotDnD();
+}
+let rotDrag = null;
+function wireRotDnD(){
+  document.querySelectorAll(".rot").forEach(box=>{
+    const key = box.dataset.rot;
+    box.querySelectorAll(".rslot").forEach(li=>{
+      li.addEventListener("dragstart", e=>{
+        e.stopPropagation();
+        rotDrag = {key, i:+li.dataset.i}; li.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain","rot");
+      });
+      li.addEventListener("dragend", ()=>{ li.classList.remove("dragging"); rotDrag=null; });
+      li.addEventListener("dragover", e=>{
+        if(!rotDrag || rotDrag.key!==key) return;
+        e.preventDefault(); e.stopPropagation(); li.classList.add("over");
+      });
+      li.addEventListener("dragleave", ()=> li.classList.remove("over"));
+      li.addEventListener("drop", e=>{
+        li.classList.remove("over");
+        if(!rotDrag || rotDrag.key!==key) return;
+        e.preventDefault(); e.stopPropagation();
+        const a = S.rot[key], from = rotDrag.i, to = +li.dataset.i;
+        if(from===to) return;
+        a.splice(to, 0, a.splice(from,1)[0]);
+        rotDrag = null; renderRots(); save();
+      });
+    });
+  });
+}
+
+/* ---------- shared render ---------- */
+function renderAll(){
+  if(!ROSTER.length && S.raid.length) rebuild();
+  syncRotations(); renderChips(); renderGrid(); renderRots(); renderRail();
+}
+function renderChips(){
+  const set = (id, f, fallback, hint)=>{
+    const c = $(id);
+    c.classList.toggle("empty", !f);
+    c.querySelector("b").textContent = f ? f.name : fallback;
+    c.querySelector("span").textContent = f ? stampText(f.stamp) : hint;
+  };
+  set("#chipRaid", S.files.raid, "No raid dump", "/output raid — the roster");
+  set("#chipGuild", S.files.guild, "No guild dump", "/outputfile guild — box owners");
+}
+let toastT;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("on"), 2200);
+}
+function jumpTo(g){
+  const node = g===0 ? $("#bench") : document.querySelector(`.grp[data-g="${g}"]`);
+  if(!node) return;
+  node.scrollIntoView({behavior:"smooth", block:"center"});
+  node.classList.add("drop-on"); setTimeout(()=>node.classList.remove("drop-on"), 900);
+}
+function highlightTeam(owner){
+  document.querySelectorAll(".mem").forEach(n=>{
+    const m = byName(n.dataset.name);
+    n.classList.toggle("teamlit", !!m && m.owner===owner);
+  });
+}
+function move(name, g){
+  if(g>0 && groupMembers(g).length>=GROUP_SIZE && groupOf(name)!==g){ toast("Group "+g+" is full."); return; }
+  S.assign[name] = g; renderAll(); save();
+}
+
+/* ---------- drag & drop + click-to-place ---------- */
+let dragName = null;
+function wireDnD(){
+  document.querySelectorAll(".mem").forEach(n=>{
+    n.addEventListener("dragstart", e=>{
+      dragName = n.dataset.name; n.classList.add("dragging");
+      e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain", dragName);
+    });
+    n.addEventListener("dragend", ()=>{ n.classList.remove("dragging"); dragName=null; });
+    n.addEventListener("click", e=>{
+      e.stopPropagation();
+      const me = n.dataset.name;
+      if(S.sel && S.sel!==me && groupOf(S.sel)!==groupOf(me)){
+        const target = groupOf(me), from = groupOf(S.sel);
+        if(target>0 && groupMembers(target).length>=GROUP_SIZE){   /* full — trade places */
+          S.assign[me] = from; S.assign[S.sel] = target;
+        }else{
+          S.assign[S.sel] = target;
+        }
+        S.sel = null; renderAll(); save(); return;
+      }
+      S.sel = (S.sel===me) ? null : me;
+      renderAll();
+    });
+    n.addEventListener("mouseenter", ()=>{ const m=byName(n.dataset.name); if(m) highlightTeam(m.owner); });
+    n.addEventListener("mouseleave", ()=> document.querySelectorAll(".mem.teamlit").forEach(x=>x.classList.remove("teamlit")));
+  });
+  const targets = [...document.querySelectorAll(".grp"), $("#bench")];
+  targets.forEach(t=>{
+    t.addEventListener("dragover", e=>{ e.preventDefault(); t.classList.add("drop-on"); });
+    t.addEventListener("dragleave", ()=> t.classList.remove("drop-on"));
+    t.addEventListener("drop", e=>{
+      e.preventDefault(); t.classList.remove("drop-on");
+      const name = dragName || e.dataTransfer.getData("text/plain");
+      if(!name) return;
+      move(name, t.id==="bench" ? 0 : +t.dataset.g);
+    });
+    t.addEventListener("click", ()=>{
+      if(!S.sel) return;
+      move(S.sel, t.id==="bench" ? 0 : +t.dataset.g);
+      S.sel = null; renderAll();
+    });
+  });
+}
+
+/* ============================================================
+   9. Wiring
+   ============================================================ */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on"); S.tab = t.dataset.tab; renderRail();
+  };
+});
+$("#btnFolder").onclick = chooseFolder;
+$("#btnFolder2").onclick = chooseFolder;
+$("#btnFiles2").onclick = openFilePicker;
+$("#btnRescan").onclick = ()=> scanFolder(true);
+$("#chkWatch").onchange = e=> setWatch(e.target.checked);
+$("#btnBuild").onclick = ()=> autoBuild(false);
+$("#btnFill").onclick = ()=> autoBuild(true);
+$("#btnRevert").onclick = ()=>{ ROSTER.forEach(m=> S.assign[m.name]=m.dumpGroup); renderAll(); save(); toast("Back to the dump's groups."); };
+$("#filePick").onchange = e=>{ loadPickedFiles([...e.target.files]); e.target.value=""; };
+
+const hasFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes("Files");
+document.addEventListener("dragover", e=>{ if(hasFiles(e)) e.preventDefault(); });
+document.addEventListener("drop", e=>{
+  if(!hasFiles(e)) return;
+  e.preventDefault();
+  if(e.dataTransfer.files.length) loadPickedFiles([...e.dataTransfer.files]);
+});
+const dz = $("#dropZone");
+dz.addEventListener("dragover", e=>{ e.preventDefault(); dz.classList.add("drop-on"); });
+dz.addEventListener("dragleave", ()=> dz.classList.remove("drop-on"));
+dz.addEventListener("drop", e=>{ e.preventDefault(); dz.classList.remove("drop-on");
+  if(e.dataTransfer.files.length) loadPickedFiles([...e.dataTransfer.files]); });
+
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape"){ S.sel=null; renderAll(); }
+  if(S.sel && /^[0-9]$/.test(e.key) && !/input|select|textarea/i.test(e.target.tagName)){
+    move(S.sel, +e.key); S.sel=null; renderAll();
+  }
+});
+
+function syncTopHeight(){
+  const h = document.querySelector(".topbar").offsetHeight;
+  document.documentElement.style.setProperty("--topH", h+"px");
+}
+window.addEventListener("resize", syncTopHeight); syncTopHeight();
+
+/* restore previous folder */
+load();
+(async ()=>{
+  const dir = await IDB.get("dir");
+  if(dir){
+    S.dirHandle = dir;
+    const p = await dir.queryPermission({mode:"read"});
+    if(p==="granted"){ await scanFolder(false); }
+    else{
+      $("#btnFolder").textContent = "Reconnect dump folder";
+      $("#btnFolder2").textContent = "Reconnect dump folder";
+    }
+  }
+})();
+</script>
+</body>
+</html>

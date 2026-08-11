@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Respawn Tracker — Ysu Toolbox</title>
+<style>
+:root{
+  --bg:#080D12;
+  --panel:#101A22;
+  --panel-2:#0C141A;
+  --line:#1E2E3A;
+  --line-hi:#2C4453;
+  --ice:#8ED8E8;
+  --ice-dim:#3E6B7C;
+  --text:#D6E7EF;
+  --dim:#7891A1;
+  --ember:#E4923C;
+  --up:#63D69A;
+  --danger:#D9645E;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:ui-sans-serif,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(900px 420px at 50% -180px,#15303C 0%,transparent 70%);
+  color:var(--text); font-family:var(--sans); font-size:15px; line-height:1.45;
+  min-height:100vh;
+}
+a{color:var(--ice)}
+header{padding:22px 20px 6px;max-width:1240px;margin:0 auto}
+.eyebrow{font:600 11px/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;color:var(--ice-dim)}
+h1{font-family:var(--serif);font-weight:600;font-size:34px;margin:8px 0 2px;letter-spacing:.01em}
+.sub{color:var(--dim);font-size:14px;margin:0 0 4px}
+main{max-width:1240px;margin:0 auto;padding:14px 20px 60px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:940px){main{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,#12202A 0%,var(--panel) 55%);border:1px solid var(--line);border-radius:10px;padding:14px 14px 16px;margin-bottom:18px}
+.card h2{font-family:var(--serif);font-size:17px;font-weight:600;margin:0 0 10px;display:flex;align-items:center;gap:10px}
+.card h2 .count{font:500 11px/1 var(--mono);color:var(--dim);border:1px solid var(--line-hi);border-radius:999px;padding:4px 8px}
+.card h2 .spacer{margin-left:auto}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+input,select,textarea,button{font-family:inherit;font-size:14px;color:var(--text)}
+input[type=text],input[type=number],select,textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--ice-dim);box-shadow:0 0 0 2px rgba(142,216,232,.14)}
+input.w-dur{width:96px;font-family:var(--mono)}
+input.w-name{min-width:170px;flex:1}
+button{background:#16242E;border:1px solid var(--line-hi);border-radius:6px;padding:7px 12px;cursor:pointer;transition:border-color .12s,background .12s,transform .06s}
+button:hover{border-color:var(--ice-dim);background:#1B2E3A}
+button:active{transform:translateY(1px)}
+button.primary{background:#1B3A45;border-color:var(--ice-dim);color:#DFF4FA}
+button.primary:hover{background:#22505F}
+button.ghost{background:transparent;border-color:var(--line);color:var(--dim);padding:5px 9px;font-size:13px}
+button.ghost:hover{color:var(--text)}
+button.tiny{padding:3px 7px;font-size:12px}
+:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.hint{color:var(--dim);font-size:12.5px;margin:8px 0 0}
+.chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--dim);cursor:pointer;user-select:none}
+.chk input{accent-color:var(--ice)}
+.drop{border:1px dashed var(--line-hi);border-radius:8px;padding:14px;text-align:center;color:var(--dim);font-size:13px;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--ice);background:rgba(142,216,232,.06);color:var(--text)}
+.status{font-family:var(--mono);font-size:12px;color:var(--ice-dim);margin-top:10px;min-height:16px}
+
+/* kill feed */
+.feed{max-height:520px;overflow:auto;margin:0 -4px}
+.kill{display:grid;grid-template-columns:24px 78px minmax(0,1fr) auto;gap:10px;align-items:center;
+  padding:8px 10px;border:1px solid transparent;border-radius:7px;cursor:pointer}
+.kill:hover{background:#16242E;border-color:var(--line-hi)}
+.kill.child{padding:5px 10px 5px 8px;border-radius:0;border-left:1px solid var(--line);margin-left:13px}
+.kill.child:hover{background:#141F27;border-color:transparent;border-left-color:var(--ice-dim)}
+.kill.sel{background:rgba(142,216,232,.10);border-color:var(--ice-dim)}
+.kill .t{font-family:var(--mono);font-size:12px;color:var(--ice-dim)}
+.kill .n{font-family:var(--serif);font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kill .by{display:block;font-family:var(--sans);font-size:11.5px;color:var(--dim);letter-spacing:.02em}
+.kill .gap{font-size:12.5px;color:var(--dim)}
+.kill .gap b{color:var(--text);font-family:var(--mono);font-weight:500}
+.kill .cx{display:flex;align-items:center;justify-content:center}
+.kill .cx input{accent-color:var(--ice);cursor:pointer}
+.caret{color:var(--dim);font-size:10px;display:inline-block;transition:transform .12s}
+.caret.open{transform:rotate(90deg);color:var(--ice)}
+.kill .acts{display:flex;gap:6px;align-items:center;opacity:.45;transition:opacity .12s}
+.kill:hover .acts,.kill:focus-within .acts,.kill.sel .acts{opacity:1}
+.badge{font:600 10px/1 var(--mono);color:var(--ember);border:1px solid rgba(228,146,60,.35);border-radius:999px;padding:3px 6px}
+.empty{color:var(--dim);font-size:13px;padding:14px 4px;font-style:italic}
+.selbar{position:sticky;bottom:0;margin:8px -4px -4px;background:#152C38;border:1px solid var(--ice-dim);border-radius:8px;
+  padding:9px 11px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;box-shadow:0 -8px 16px rgba(8,13,18,.7)}
+.selbar .who{font-size:13px;color:#DFF4FA;font-weight:600;white-space:nowrap}
+.est{font-size:12px;color:var(--dim);font-family:var(--mono);flex:1;min-width:170px;line-height:1.35}
+.est.warn{color:var(--ember)}
+
+/* timers */
+.timer{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);padding:11px 12px 13px;margin-bottom:9px}
+.timer .head{display:flex;align-items:baseline;gap:10px}
+.timer .nm{font-family:var(--serif);font-size:17px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timer .cd{font-family:var(--mono);font-size:25px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.timer .meta{font-size:11.5px;color:var(--dim);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.timer .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--ice-dim);width:0%}
+.timer[data-state=down] .cd{color:var(--ice)}
+.timer[data-state=window]{border-color:rgba(228,146,60,.5)}
+.timer[data-state=window] .cd{color:var(--ember)}
+.timer[data-state=window] .bar{background:var(--ember)}
+.timer[data-state=up]{border-color:rgba(99,214,154,.55);background:linear-gradient(180deg,rgba(99,214,154,.09),var(--panel-2))}
+.timer[data-state=up] .cd{color:var(--up)}
+.timer[data-state=up] .bar{background:var(--up);width:100%}
+.timer.alert{animation:pulse 1.1s ease-in-out 4}
+@keyframes pulse{50%{box-shadow:0 0 0 2px rgba(99,214,154,.45)}}
+@media (prefers-reduced-motion:reduce){.timer.alert{animation:none}*{transition:none!important}}
+.timer .acts{position:absolute;top:9px;right:10px;display:flex;gap:5px;opacity:.4}
+.timer:hover .acts{opacity:1}
+
+/* profile */
+.mob{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.mob:last-child{border-bottom:0}
+.mob .nm{font-family:var(--serif);font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details summary{cursor:pointer;color:var(--dim);font-size:13px;padding:4px 0}
+details summary:hover{color:var(--text)}
+.tag{font:500 10px/1 var(--mono);color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:3px 5px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#16303A;border:1px solid var(--ice-dim);
+  color:#DFF4FA;padding:9px 15px;border-radius:8px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Ysu Toolbox</div>
+  <h1>Respawn Tracker</h1>
+  <p class="sub">Pull kills out of your EverQuest logs, then count the mob back down.</p>
+</header>
+
+<main>
+<div class="col">
+
+  <section class="card">
+    <h2>Log files <span class="count" id="srcCount">none loaded</span></h2>
+    <div class="row">
+      <button class="primary" id="btnPick">Choose log files</button>
+      <input type="file" id="fileInput" multiple accept=".txt,.log" hidden>
+      <label class="chk" title="EQ logs get huge — only the tail is read unless you ask for all of it."><input type="checkbox" id="fullScan"> Scan whole file</label>
+      <label class="chk"><input type="checkbox" id="watch"> Watch for new kills</label>
+      <label class="chk"><input type="checkbox" id="autoStart" checked> Auto-start timers for saved mobs</label>
+    </div>
+    <div class="drop" id="drop">Or drop <code>eqlog_&lt;name&gt;_frostreaver.txt</code> files here</div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="card">
+    <h2>Kills <span class="count" id="killCount">0</span>
+      <span class="spacer"></span>
+      <button class="ghost" id="clearKills">Clear</button>
+    </h2>
+    <div class="row" style="margin-bottom:10px">
+      <input type="text" id="search" class="w-name" placeholder="Filter by mob or killer…">
+      <label class="chk"><input type="checkbox" id="latestOnly" checked> Group by mob</label>
+    </div>
+    <div class="feed" id="feed"><div class="empty">Load a log file to see deaths.</div></div>
+    <div class="selbar" id="selbar" hidden>
+      <span class="who" id="selInfo"></span>
+      <span class="est" id="selEst"></span>
+      <button class="tiny" id="selStart">Start timers</button>
+      <button class="tiny" id="selSave">Save to profile</button>
+      <button class="ghost tiny" id="selClear">Clear</button>
+    </div>
+    <p class="hint">Expand a mob to see every kill of it, then tick two or more: the gaps between them become a respawn estimate. Ticked kills start as separate timers, one per spawn.</p>
+
+    <details style="margin-top:10px">
+      <summary>Ignore list</summary>
+      <p class="hint" style="margin:4px 0 6px">One name per line. Deaths of these names never show up — handy for your own boxes and pets.</p>
+      <textarea id="ignore" rows="3" style="width:100%" placeholder="Araso&#10;Treeport&#10;Skorr"></textarea>
+    </details>
+  </section>
+
+</div>
+<div class="col">
+
+  <section class="card">
+    <h2>Timers <span class="count" id="timerCount">0</span>
+      <span class="spacer"></span>
+      <label class="chk"><input type="checkbox" id="sound" checked> Sound</label>
+      <button class="ghost" id="clearDone">Clear popped</button>
+    </h2>
+    <div class="row" style="margin-bottom:10px">
+      <label class="f">Default respawn
+        <input type="text" id="defRespawn" class="w-dur" value="6:40" placeholder="6:40">
+      </label>
+      <label class="f">Variance
+        <input type="text" id="defVariance" class="w-dur" value="0" placeholder="0">
+      </label>
+      <span class="hint" style="margin:14px 0 0">Accepts <code>22</code> (minutes), <code>6:40</code>, <code>10h</code>, <code>6h30m</code>.</span>
+    </div>
+    <div id="timers"><div class="empty">No timers running.</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Profile
+      <span class="spacer"></span>
+      <select id="profileSel" style="max-width:170px"></select>
+      <button class="ghost" id="newProfile">New</button>
+      <button class="ghost" id="delProfile">Delete</button>
+    </h2>
+    <div id="mobs"><div class="empty">Nothing saved yet.</div></div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="addName" class="w-name" placeholder="Mob name">
+      <input type="text" id="addResp" class="w-dur" placeholder="respawn">
+      <input type="text" id="addVar" class="w-dur" placeholder="variance">
+      <button id="addMob">Add</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" id="startAll">Start all timers</button>
+      <span class="spacer" style="margin-left:auto"></span>
+      <button class="ghost" id="exportBtn">Export</button>
+      <button class="ghost" id="importBtn">Import</button>
+      <input type="file" id="importFile" accept=".json" hidden>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s,r=document)=>r.querySelector(s);
+const KEY = "ysu.respawn.v1";
+const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+const KILL_RE = /^\[\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})\]\s+(.+?)\s+(?:has been|have been|was|were)\s+slain by\s+(.+?)\s*[!.]*$/i;
+const KILL_RE_NOTS = /^(.+?)\s+(?:has been|have been|was|were)\s+slain by\s+(.+?)\s*[!.]*$/i;
+const SLEW_RE = /^\[\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})\s+(\d{4})\]\s+You have slain\s+(.+?)\s*[!.]*$/i;
+
+/* ---------- state ---------- */
+let state = {
+  kills: [],
+  timers: [],
+  profiles: { Default: [] },
+  active: "Default",
+  settings: { defRespawn:"6:40", defVariance:"0", sound:true, fullScan:false, autoStart:true, ignore:"", latestOnly:true }
+};
+let sources = [];       // {name, handle?, file?, lastSize}
+let watchTimer = null;
+let audioCtx = null;
+
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify({kills:state.kills.slice(0,300),timers:state.timers,profiles:state.profiles,active:state.active,settings:state.settings})); }
+  catch(e){ /* storage unavailable — everything still works for this session */ }
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    state.kills = d.kills||[];
+    state.timers = d.timers||[];
+    state.profiles = d.profiles && Object.keys(d.profiles).length ? d.profiles : {Default:[]};
+    state.active = state.profiles[d.active] ? d.active : Object.keys(state.profiles)[0];
+    state.settings = Object.assign(state.settings, d.settings||{});
+  }catch(e){}
+}
+
+/* ---------- duration helpers ---------- */
+function parseDuration(s){
+  if(s===null||s===undefined) return null;
+  s = String(s).trim().toLowerCase();
+  if(!s) return null;
+  if(/^\d+(\.\d+)?$/.test(s)) return Math.round(parseFloat(s)*60);      // bare number = minutes
+  let m = s.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if(m) return m[3]!==undefined ? (+m[1])*3600+(+m[2])*60+(+m[3]) : (+m[1])*60+(+m[2]);
+  let total=0, found=false, x, re=/(\d+(?:\.\d+)?)\s*([hms])/g;
+  while((x=re.exec(s))){ found=true; const v=parseFloat(x[1]); total += x[2]==="h"?v*3600 : x[2]==="m"?v*60 : v; }
+  return found ? Math.round(total) : null;
+}
+function fmtDur(sec){
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec/3600), m = Math.floor(sec%3600/60), s = sec%60;
+  return h ? h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")
+           : m+":"+String(s).padStart(2,"0");
+}
+function clockTime(ms){
+  const d = new Date(ms);
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
+}
+
+/* ---------- parsing ---------- */
+function parseText(text, srcName){
+  const out = [];
+  const lines = text.split(/\r?\n/);
+  for(const line of lines){
+    if(line.indexOf("slain") === -1) continue;
+    let ts=null, victim=null, killer=null;
+    const ms = SLEW_RE.exec(line);
+    if(ms){
+      const mo = MONTHS[ms[1].toLowerCase()];
+      if(mo===undefined) continue;
+      ts = new Date(+ms[6], mo, +ms[2], +ms[3], +ms[4], +ms[5]).getTime();
+      victim = ms[7].trim(); killer = (String(srcName||"").match(/eqlog_([^_]+)_/i)||[,"you"])[1];
+      out.push({ ts, name:victim, by:killer, src:srcName||"", id: ts+"|"+victim+"|"+killer });
+      continue;
+    }
+    if(line.indexOf("slain by") === -1) continue;
+    const m = KILL_RE.exec(line);
+    if(m){
+      const mo = MONTHS[m[1].toLowerCase()];
+      if(mo===undefined) continue;
+      ts = new Date(+m[6], mo, +m[2], +m[3], +m[4], +m[5]).getTime();
+      victim = m[7]; killer = m[8];
+    }else{
+      const m2 = KILL_RE_NOTS.exec(line.replace(/^\[[^\]]*\]\s*/,""));
+      if(!m2) continue;
+      ts = Date.now(); victim = m2[1]; killer = m2[2];
+    }
+    victim = victim.replace(/^\s*[-–]\s*/,"").trim();
+    if(!victim || victim.length>60) continue;
+    out.push({ ts, name:victim, by:killer.trim(), src:srcName||"", id: ts+"|"+victim+"|"+killer });
+  }
+  return out;
+}
+function addKills(list, isLive){
+  const seen = new Set(state.kills.map(k=>k.id));
+  const fresh = list.filter(k=>!seen.has(k.id));
+  if(!fresh.length) return 0;
+  state.kills = fresh.concat(state.kills).sort((a,b)=>b.ts-a.ts).slice(0,600);
+  if(isLive && state.settings.autoStart){
+    for(const k of fresh){
+      const mob = findMob(k.name);
+      if(mob){
+        startTimer(k.name, k.ts, mob.respawn, mob.variance, true);
+        toast("Auto-started " + k.name);
+      }
+    }
+  }
+  return fresh.length;
+}
+
+/* ---------- file loading ---------- */
+async function readSource(src, forceTail){
+  const file = src.handle ? await src.handle.getFile() : src.file;
+  if(!file) return [];
+  let blob, dropFirst = false;
+  if(!forceTail && src.lastSize!=null && file.size > src.lastSize){
+    blob = file.slice(src.lastSize);
+  }else if(!forceTail && src.lastSize!=null){
+    return [];
+  }else if(state.settings.fullScan){
+    blob = file;
+  }else{
+    const tail = 8*1024*1024;
+    if(file.size > tail){ blob = file.slice(file.size - tail); dropFirst = true; }
+    else blob = file;
+  }
+  src.lastSize = file.size;
+  let text = await blob.text();
+  if(dropFirst) text = text.slice(text.indexOf("\n")+1);
+  return parseText(text, file.name);
+}
+async function loadAll(isLive){
+  let total = 0, errs = 0;
+  for(const src of sources){
+    try{ total += addKills(await readSource(src, !isLive), isLive); }
+    catch(e){ errs++; }
+  }
+  renderFeed(); renderTimers(); save();
+  if(!isLive){
+    setStatus(sources.length + " file(s) loaded · " + state.kills.length + " kills" + (errs? " · "+errs+" unreadable":""));
+  }else if(total){
+    setStatus(clockTime(Date.now()) + " — " + total + " new kill(s)");
+  }
+  $("#srcCount").textContent = sources.length ? sources.length + " file(s)" : "none loaded";
+}
+async function pickFiles(){
+  if(window.showOpenFilePicker){
+    try{
+      const handles = await window.showOpenFilePicker({multiple:true, types:[{description:"EQ logs", accept:{"text/plain":[".txt",".log"]}}]});
+      sources = handles.map(h=>({name:h.name, handle:h, lastSize:null}));
+    }catch(e){ return; }
+  }else{
+    $("#fileInput").click(); return;
+  }
+  await loadAll(false);
+}
+function setSourcesFromFiles(files){
+  sources = [...files].map(f=>({name:f.name, file:f, lastSize:null}));
+  if($("#watch").checked && !sources[0].handle){
+    $("#watch").checked = false; setWatch(false);
+    toast("Live watching needs the file picker (Chrome/Edge)");
+  }
+  loadAll(false);
+}
+function setWatch(on){
+  clearInterval(watchTimer); watchTimer = null;
+  if(on) watchTimer = setInterval(()=>loadAll(true), 15000);
+}
+
+/* ---------- timers ---------- */
+function findMob(name){
+  const list = state.profiles[state.active]||[];
+  return list.find(m=>m.name.toLowerCase()===String(name).toLowerCase());
+}
+function startTimer(name, fromMs, respawnSec, varianceSec, quiet){
+  if(respawnSec==null){
+    const mob = findMob(name);
+    respawnSec = mob ? mob.respawn : (parseDuration(state.settings.defRespawn) || 400);
+    if(varianceSec==null) varianceSec = mob ? mob.variance : (parseDuration(state.settings.defVariance) || 0);
+  }
+  varianceSec = varianceSec || 0;
+  state.timers.unshift({
+    id: "t"+Date.now()+Math.random().toString(36).slice(2,6),
+    name, start: fromMs || Date.now(), respawn: respawnSec, variance: varianceSec,
+    state: "down", alerted: false
+  });
+  renderTimers(); save();
+  if(!quiet) toast(name + " — " + fmtDur(respawnSec) + (varianceSec? " +"+fmtDur(varianceSec)+" window":""));
+}
+function timerPhase(t, now){
+  const spawn = t.start + t.respawn*1000;
+  const end = spawn + t.variance*1000;
+  if(now < spawn) return {state:"down", label:fmtDur((spawn-now)/1000), sub:"pops "+clockTime(spawn), pct:(now-t.start)/(spawn-t.start)*100};
+  if(now < end) return {state:"window", label:fmtDur((end-now)/1000), sub:"window closes "+clockTime(end), pct:(now-t.start)/(end-t.start)*100};
+  return {state:"up", label:"UP "+fmtDur((now-(t.variance?end:spawn))/1000), sub:(t.variance?"window closed ":"popped ")+clockTime(t.variance?end:spawn), pct:100};
+}
+function beep(){
+  if(!state.settings.sound) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    const t0 = audioCtx.currentTime;
+    [880,1320].forEach((f,i)=>{
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = f; o.type = "sine";
+      g.gain.setValueAtTime(.0001, t0+i*.18);
+      g.gain.exponentialRampToValueAtTime(.25, t0+i*.18+.02);
+      g.gain.exponentialRampToValueAtTime(.0001, t0+i*.18+.32);
+      o.connect(g).connect(audioCtx.destination); o.start(t0+i*.18); o.stop(t0+i*.18+.35);
+    });
+  }catch(e){}
+}
+let titleFlash = null;
+function flashTitle(name){
+  clearInterval(titleFlash);
+  let on = false, n = 0;
+  titleFlash = setInterval(()=>{
+    document.title = (on = !on) ? "*** " + name + " UP ***" : "Respawn Tracker — Ysu Toolbox";
+    if(++n > 20){ clearInterval(titleFlash); document.title = "Respawn Tracker — Ysu Toolbox"; }
+  }, 900);
+}
+
+/* ---------- rendering ---------- */
+function ignoreSet(){
+  return new Set(String(state.settings.ignore||"").split(/[\n,]/).map(s=>s.trim().toLowerCase()).filter(Boolean));
+}
+let selected = new Set(), expanded = new Set();
+
+function estimateFrom(kills){
+  if(!kills || kills.length < 2) return null;
+  const asc = kills.slice().sort((a,b)=>a.ts-b.ts), gaps = [];
+  for(let i=1;i<asc.length;i++) gaps.push(Math.round((asc[i].ts-asc[i-1].ts)/1000));
+  // Median gap is the yardstick: it survives both missed cycles and double kills.
+  const med = gaps.slice().sort((a,b)=>a-b)[Math.floor(gaps.length/2)];
+  const vals = []; let folded = 0, dropped = 0;
+  for(const g of gaps){
+    const k = Math.max(1, Math.round(g/med));
+    if(k <= 4 && Math.abs(g/k - med) <= med*0.25){ vals.push(g/k); if(k>1) folded++; }  // g was k cycles you didn't catch
+    else dropped++;                                                                     // a double kill or a long gap in coverage
+  }
+  if(!vals.length) return null;
+  const sorted = vals.slice().sort((a,b)=>a-b);
+  const min = Math.round(sorted[0]), max = Math.round(sorted[sorted.length-1]);
+  return { gaps, min, max, spread:max-min, used:vals.length, n:gaps.length, folded, dropped, tight:med < 180 };   // nothing in EQ respawns that fast — those are separate spawn points
+}
+function estText(e){
+  if(!e) return "";
+  if(e.tight) return "gaps of a couple of minutes — those read as separate spawn points, not one mob cycling";
+  let s = e.used === 1
+    ? "1 gap: " + fmtDur(e.min) + " — a third kill would show the window"
+    : e.used + " gaps: " + fmtDur(e.min) + "–" + fmtDur(e.max) + " → suggests " + fmtDur(e.min) + (e.spread ? " +" + fmtDur(e.spread) + " window" : ", no variance seen");
+  if(e.folded) s += " · " + e.folded + " missed cycle" + (e.folded>1?"s":"") + " folded in";
+  if(e.dropped) s += " · " + e.dropped + " outlier" + (e.dropped>1?"s":"") + " ignored";
+  return s;
+}
+function selectedKills(){ return state.kills.filter(k=>selected.has(k.id)).sort((a,b)=>a.ts-b.ts); }
+function selEstimate(){
+  const ks = selectedKills();
+  const names = new Set(ks.map(k=>k.name.toLowerCase()));
+  return { ks, names, est: names.size===1 ? estimateFrom(ks) : null };
+}
+function renderSelBar(){
+  const bar = $("#selbar"), {ks, names, est} = selEstimate();
+  if(ks.length !== selected.size) selected = new Set(ks.map(k=>k.id));   // drop ids that no longer exist
+  if(!ks.length){ bar.hidden = true; return; }
+  bar.hidden = false;
+  $("#selInfo").textContent = ks.length + " selected" + (names.size>1 ? " · " + names.size + " mobs" : "");
+  $("#selEst").textContent = est ? estText(est) : (names.size===1 ? "tick a second kill to estimate the respawn" : "mixed mobs — no estimate");
+  $("#selEst").className = "est" + (est && est.tight ? " warn" : "");
+  $("#selSave").hidden = names.size !== 1;
+  $("#selSave").textContent = est && !est.tight
+    ? "Save " + fmtDur(est.min) + (est.spread ? " +" + fmtDur(est.spread) : "")
+    : "Save to profile";
+}
+function toggleSel(id){ selected.has(id) ? selected.delete(id) : selected.add(id); renderFeed(); }
+function killRow(k, opts){
+  opts = opts || {};
+  const mid = opts.flat
+    ? '<div><span class="n">'+esc(k.name)+'</span><span class="by">slain by '+esc(k.by)+(opts.gap!=null ? ' · '+fmtDur(opts.gap)+' after the one before' : '')+'</span></div>'
+    : '<div class="gap">'+(opts.gap!=null ? '<b>'+fmtDur(opts.gap)+'</b> after the kill before it' : 'oldest kill in the log')+'</div>';
+  const row = document.createElement("div");
+  row.className = "kill" + (opts.flat ? "" : " child") + (selected.has(k.id) ? " sel" : "");
+  row.tabIndex = 0;
+  row.innerHTML =
+    '<div class="cx"><input type="checkbox" data-act="sel"'+(selected.has(k.id)?" checked":"")+'></div>'+
+    '<div class="t">'+clockTime(k.ts)+'</div>'+ mid +
+    '<div class="acts"><button class="ghost tiny" data-act="start">Start</button></div>';
+  row.addEventListener("click", e=>{
+    const act = e.target.dataset && e.target.dataset.act;
+    if(act === "start"){ e.stopPropagation(); startTimer(k.name, k.ts); return; }
+    toggleSel(k.id);
+  });
+  row.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggleSel(k.id); } });
+  return row;
+}
+function renderFeed(){
+  const feed = $("#feed"), q = $("#search").value.trim().toLowerCase(), ign = ignoreSet();
+  let list = state.kills.filter(k=>!ign.has(k.name.toLowerCase()));
+  if(q) list = list.filter(k=>k.name.toLowerCase().includes(q)||k.by.toLowerCase().includes(q));
+  $("#killCount").textContent = list.length;
+  feed.innerHTML = "";
+  if(!list.length){ feed.innerHTML = '<div class="empty">No kills match.</div>'; renderSelBar(); return; }
+
+  if(state.settings.latestOnly){
+    const groups = new Map();
+    for(const k of list){ const key = k.name.toLowerCase(); if(!groups.has(key)) groups.set(key, []); groups.get(key).push(k); }
+    let shown = 0;
+    for(const [key, ks] of groups){
+      if(++shown > 150) break;
+      const est = estimateFrom(ks), open = expanded.has(key), multi = ks.length > 1;
+      const picked = ks.filter(k=>selected.has(k.id)).length;
+      const head = document.createElement("div");
+      head.className = "kill"; head.tabIndex = 0;
+      head.innerHTML =
+        '<div class="cx">'+(multi ? '<span class="caret'+(open?" open":"")+'">&#9654;</span>' : '')+'</div>'+
+        '<div class="t">'+clockTime(ks[0].ts)+'</div>'+
+        '<div><span class="n">'+esc(ks[0].name)+'</span>'+
+        '<span class="by">slain by '+esc(ks[0].by)+(multi ? ' · '+ks.length+' kills' : '')+(picked ? ' · '+picked+' ticked' : '')+'</span></div>'+
+        '<div class="acts">'+
+          (est && !est.tight ? '<span class="badge" title="'+esc(estText(est))+'">~'+fmtDur(est.min)+'</span>' : '')+
+          (multi ? '<button class="ghost tiny" data-act="all">Tick all</button>' : '')+
+          (findMob(ks[0].name) ? '<span class="tag">saved</span>' : '<button class="ghost tiny" data-act="save">Save</button>')+
+          '<button class="ghost tiny" data-act="start">Start</button>'+
+        '</div>';
+      head.addEventListener("click", e=>{
+        const act = e.target.dataset && e.target.dataset.act;
+        if(act === "save"){ e.stopPropagation(); saveMob(ks[0].name, est&&!est.tight?est.min:null, est&&!est.tight?est.spread:null, true); return; }
+        if(act === "start"){ e.stopPropagation(); startTimer(ks[0].name, ks[0].ts); return; }
+        if(act === "all"){ e.stopPropagation(); ks.forEach(k=>selected.add(k.id)); expanded.add(key); renderFeed(); return; }
+        if(multi){ open ? expanded.delete(key) : expanded.add(key); renderFeed(); }
+        else startTimer(ks[0].name, ks[0].ts);
+      });
+      head.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); head.click(); } });
+      feed.appendChild(head);
+      if(open) ks.forEach((k,i)=>feed.appendChild(killRow(k, {gap: ks[i+1] ? (k.ts-ks[i+1].ts)/1000 : null})));
+    }
+  }else{
+    const shown = list.slice(0,250);
+    shown.forEach((k,i)=>{
+      let prev = null;
+      for(let j=i+1;j<shown.length;j++){ if(shown[j].name.toLowerCase()===k.name.toLowerCase()){ prev = shown[j]; break; } }
+      feed.appendChild(killRow(k, {flat:true, gap: prev ? (k.ts-prev.ts)/1000 : null}));
+    });
+  }
+  renderSelBar();
+}
+function renderTimers(){
+  const wrap = $("#timers"), now = Date.now();
+  $("#timerCount").textContent = state.timers.length;
+  if(!state.timers.length){ wrap.innerHTML = '<div class="empty">No timers running.</div>'; return; }
+  const sorted = state.timers.slice().sort((a,b)=>(a.start+a.respawn*1000)-(b.start+b.respawn*1000));
+  const inst = {}, byName = {};
+  state.timers.forEach(t=>{ const k=t.name.toLowerCase(); (byName[k]=byName[k]||[]).push(t); });
+  Object.keys(byName).forEach(k=>{
+    const arr = byName[k].sort((a,b)=>a.start-b.start);
+    if(arr.length>1) arr.forEach((t,i)=>inst[t.id]=i+1);
+  });
+  wrap.innerHTML = "";
+  for(const t of sorted){
+    const p = timerPhase(t, now);
+    if(p.state !== t.state){
+      t.state = p.state;
+      if(p.state !== "down" && !t.alerted){ t.alerted = true; beep(); flashTitle(t.name); }
+      save();
+    }
+    const el = document.createElement("div");
+    el.className = "timer" + (p.state!=="down" && Date.now()-(t.start+t.respawn*1000) < 6000 ? " alert":"");
+    el.dataset.state = p.state;
+    el.innerHTML =
+      '<div class="acts">'+
+        '<button class="ghost tiny" data-act="restart" title="Restart from now">↻</button>'+
+        '<button class="ghost tiny" data-act="remove" title="Remove">✕</button>'+
+      '</div>'+
+      '<div class="head"><span class="nm">'+esc(t.name)+'</span>'+(inst[t.id]?'<span class="tag">#'+inst[t.id]+'</span>':'')+'</div>'+
+      '<div class="cd">'+p.label+'</div>'+
+      '<div class="meta"><span>died '+clockTime(t.start)+'</span><span>'+p.sub+'</span><span>'+fmtDur(t.respawn)+(t.variance?" +"+fmtDur(t.variance):"")+'</span></div>'+
+      '<div class="bar" style="width:'+Math.min(100,Math.max(0,p.pct))+'%"></div>';
+    el.addEventListener("click", e=>{
+      const act = e.target.dataset && e.target.dataset.act;
+      if(act === "remove"){ state.timers = state.timers.filter(x=>x.id!==t.id); renderTimers(); save(); }
+      if(act === "restart"){ t.start = Date.now(); t.state="down"; t.alerted=false; renderTimers(); save(); }
+    });
+    wrap.appendChild(el);
+  }
+}
+function renderProfile(){
+  const sel = $("#profileSel");
+  sel.innerHTML = Object.keys(state.profiles).map(p=>'<option'+(p===state.active?' selected':'')+'>'+esc(p)+'</option>').join("");
+  const list = state.profiles[state.active] || [];
+  const wrap = $("#mobs");
+  if(!list.length){ wrap.innerHTML = '<div class="empty">Nothing saved yet.</div>'; return; }
+  wrap.innerHTML = "";
+  list.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(mob=>{
+    const row = document.createElement("div");
+    row.className = "mob";
+    row.innerHTML =
+      '<div class="nm" title="'+esc(mob.name)+'">'+esc(mob.name)+'</div>'+
+      '<input type="text" class="w-dur" value="'+fmtDur(mob.respawn)+'" title="Respawn">'+
+      '<input type="text" class="w-dur" value="'+(mob.variance?fmtDur(mob.variance):"0")+'" title="Variance">'+
+      '<span><button class="tiny" data-act="start">Start</button> <button class="ghost tiny" data-act="del">✕</button></span>';
+    const [respIn, varIn] = row.querySelectorAll("input");
+    respIn.addEventListener("change", ()=>{ const v=parseDuration(respIn.value); if(v){ mob.respawn=v; save(); } respIn.value=fmtDur(mob.respawn); });
+    varIn.addEventListener("change", ()=>{ const v=parseDuration(varIn.value); mob.variance = v||0; save(); varIn.value=fmtDur(mob.variance); });
+    row.addEventListener("click", e=>{
+      const act = e.target.dataset && e.target.dataset.act;
+      if(act==="start") startTimer(mob.name, Date.now(), mob.respawn, mob.variance);
+      if(act==="del"){
+        state.profiles[state.active] = state.profiles[state.active].filter(m=>m!==mob);
+        renderProfile(); renderFeed(); save();
+      }
+    });
+    wrap.appendChild(row);
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function setStatus(s){ $("#status").textContent = s; }
+let toastTimer=null;
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------- profile actions ---------- */
+function saveMob(name, respawn, variance, update){
+  const list = state.profiles[state.active] = state.profiles[state.active] || [];
+  const resp = respawn || parseDuration(state.settings.defRespawn) || 400;
+  const vari = variance != null ? variance : (parseDuration(state.settings.defVariance) || 0);
+  const tail = " · " + fmtDur(resp) + (vari ? " +" + fmtDur(vari) : "");
+  const found = list.find(m=>m.name.toLowerCase()===name.toLowerCase());
+  if(found){
+    if(update && respawn){ found.respawn = resp; found.variance = vari; renderProfile(); renderFeed(); save(); toast("Updated " + found.name + tail); }
+    else toast(name + " is already saved");
+    return;
+  }
+  list.push({ name, respawn:resp, variance:vari });
+  renderProfile(); renderFeed(); save();
+  toast("Saved " + name + tail);
+}
+
+/* ---------- wiring ---------- */
+$("#btnPick").addEventListener("click", pickFiles);
+$("#fileInput").addEventListener("change", e=>{ if(e.target.files.length) setSourcesFromFiles(e.target.files); });
+const drop = $("#drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev, e=>{e.preventDefault(); drop.classList.remove("over");}));
+drop.addEventListener("drop", e=>{ if(e.dataTransfer.files.length) setSourcesFromFiles(e.dataTransfer.files); });
+
+$("#fullScan").addEventListener("change", e=>{ state.settings.fullScan = e.target.checked; sources.forEach(s=>s.lastSize=null); save(); if(sources.length) loadAll(false); });
+$("#watch").addEventListener("change", e=>{ setWatch(e.target.checked); if(e.target.checked) toast("Rechecking logs every 15s"); });
+$("#autoStart").addEventListener("change", e=>{ state.settings.autoStart = e.target.checked; save(); });
+$("#sound").addEventListener("change", e=>{ state.settings.sound = e.target.checked; save(); if(e.target.checked) beep(); });
+$("#search").addEventListener("input", renderFeed);
+$("#latestOnly").addEventListener("change", e=>{ state.settings.latestOnly = e.target.checked; save(); renderFeed(); });
+$("#ignore").addEventListener("input", e=>{ state.settings.ignore = e.target.value; save(); renderFeed(); });
+$("#clearKills").addEventListener("click", ()=>{ state.kills = []; selected.clear(); expanded.clear(); renderFeed(); save(); });
+$("#selClear").addEventListener("click", ()=>{ selected.clear(); renderFeed(); });
+$("#selStart").addEventListener("click", ()=>{
+  const {ks, est} = selEstimate();
+  const use = est && !est.tight ? est : null;
+  ks.forEach(k=>startTimer(k.name, k.ts, use?use.min:null, use?use.spread:null, true));
+  toast("Started " + ks.length + " timer(s)" + (use ? " at " + fmtDur(use.min) : ""));
+  selected.clear(); renderFeed();
+});
+$("#selSave").addEventListener("click", ()=>{
+  const {ks, names, est} = selEstimate();
+  if(names.size !== 1) return;
+  const use = est && !est.tight ? est : null;
+  saveMob(ks[0].name, use?use.min:null, use?use.spread:null, true);
+});
+$("#clearDone").addEventListener("click", ()=>{ state.timers = state.timers.filter(t=>t.state!=="up"); renderTimers(); save(); });
+$("#defRespawn").addEventListener("change", e=>{ state.settings.defRespawn = e.target.value; save(); });
+$("#defVariance").addEventListener("change", e=>{ state.settings.defVariance = e.target.value; save(); });
+
+$("#profileSel").addEventListener("change", e=>{ state.active = e.target.value; renderProfile(); renderFeed(); save(); });
+$("#newProfile").addEventListener("click", ()=>{
+  const name = prompt("Name this profile (zone, raid target, whatever fits):");
+  if(!name) return;
+  if(!state.profiles[name]) state.profiles[name] = [];
+  state.active = name; renderProfile(); renderFeed(); save();
+});
+$("#delProfile").addEventListener("click", ()=>{
+  const keys = Object.keys(state.profiles);
+  if(keys.length < 2){ toast("Keep at least one profile"); return; }
+  if(!confirm("Delete profile \"" + state.active + "\" and everything saved in it?")) return;
+  delete state.profiles[state.active];
+  state.active = Object.keys(state.profiles)[0];
+  renderProfile(); renderFeed(); save();
+});
+$("#addMob").addEventListener("click", ()=>{
+  const name = $("#addName").value.trim();
+  if(!name){ $("#addName").focus(); return; }
+  saveMob(name, parseDuration($("#addResp").value), parseDuration($("#addVar").value)||0);
+  $("#addName").value = $("#addResp").value = $("#addVar").value = "";
+});
+$("#addName").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#addMob").click(); });
+$("#startAll").addEventListener("click", ()=>{
+  const list = state.profiles[state.active]||[];
+  if(!list.length){ toast("Nothing saved in this profile"); return; }
+  list.forEach(m=>startTimer(m.name, Date.now(), m.respawn, m.variance, true));
+  toast("Started " + list.length + " timer(s)");
+});
+$("#exportBtn").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify({profiles:state.profiles, settings:state.settings}, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "respawn-profiles.json"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+});
+$("#importBtn").addEventListener("click", ()=>$("#importFile").click());
+$("#importFile").addEventListener("change", async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const d = JSON.parse(await f.text());
+    if(d.profiles) Object.assign(state.profiles, d.profiles);
+    if(d.settings) Object.assign(state.settings, d.settings);
+    renderProfile(); renderFeed(); save(); toast("Profiles imported");
+  }catch(err){ toast("That file isn't a profile export"); }
+  e.target.value = "";
+});
+
+/* ---------- boot ---------- */
+load();
+$("#defRespawn").value = state.settings.defRespawn;
+$("#defVariance").value = state.settings.defVariance;
+$("#sound").checked = state.settings.sound;
+$("#fullScan").checked = state.settings.fullScan;
+$("#autoStart").checked = state.settings.autoStart;
+$("#latestOnly").checked = state.settings.latestOnly;
+$("#ignore").value = state.settings.ignore||"";
+renderProfile(); renderFeed(); renderTimers();
+if(state.kills.length) setStatus(state.kills.length + " kills restored from your last session");
+setInterval(renderTimers, 1000);
+</script>
+</body>
+</html>
