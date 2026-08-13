@@ -145,6 +145,23 @@ h2.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(
 .cnt{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
 .cnt.full{color:var(--ok)}
 .cnt.over{color:var(--bad);font-weight:700}
+
+/* ---------- tank group ---------- */
+.tgtoggle{
+  display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--faint);
+}
+.tgtoggle input[type=checkbox]{width:12px;height:12px;accent-color:var(--brass)}
+.grp.tank{border-color:#5c4a2c}
+.grp.tank > header{background:linear-gradient(180deg,#2a2a24,#1f2118)}
+.grp.tank .tgtoggle{color:var(--brass)}
+.grp.tank .gno{color:#f0d9a8}
+.tgbar{
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 9px;
+  background:#1a1c16;border-bottom:1px solid var(--edge);
+  font-family:var(--mono);font-size:10.5px;color:var(--dim);white-space:nowrap;
+}
+.tgbar select{flex:0 0 auto;width:auto;padding:1px 4px;font-size:10.5px;font-family:var(--mono)}
 .slots{list-style:none;margin:0;padding:4px;display:flex;flex-direction:column;gap:3px;flex:1}
 .slot-empty{
   height:26px;border:1px dashed #24313f;border-radius:4px;
@@ -440,8 +457,9 @@ const S = {
   ownerOverride: {},        // name -> owner key
   locked: {},               // name -> true (never moved by the builder)
   rules: [],
-  weights: {tank:60, healer:55, cleric:22, bard:50, cohesion:130, dupe:7, empty:10, bardMelee:18, clericApart:200, clericWar:35},
+  weights: {tank:60, healer:55, cleric:22, bard:50, cohesion:130, dupe:7, empty:10, bardMelee:18, clericApart:200, clericWar:35, tankGroup:200},
   need:   {tank:true, healer:true, bard:true, meleeBard:true, clericSolo:true, clericWarrior:true},
+  tankGroups: {},           // group number -> how many warriors it wants (1-4)
   groupsToUse: 0,           // 0 = auto
   files: {raid:null, guild:null},
   rot:    {tank:[], ch:[]},      /* order the raid leader set */
@@ -457,7 +475,8 @@ function save(){
   try{
     localStorage.setItem(LS, JSON.stringify({
       assign:S.assign, ownerOverride:S.ownerOverride, locked:S.locked, rules:S.rules,
-      weights:S.weights, need:S.need, groupsToUse:S.groupsToUse, rot:S.rot, rotOut:S.rotOut
+      weights:S.weights, need:S.need, tankGroups:S.tankGroups,
+      groupsToUse:S.groupsToUse, rot:S.rot, rotOut:S.rotOut
     }));
   }catch(e){}
 }
@@ -470,6 +489,7 @@ function load(){
     if(Array.isArray(d.rules)) S.rules = d.rules;
     if(d.weights) Object.assign(S.weights, d.weights);
     if(d.need) Object.assign(S.need, d.need);
+    if(d.tankGroups) S.tankGroups = d.tankGroups;
     if(typeof d.groupsToUse === "number") S.groupsToUse = d.groupsToUse;
     if(d.rot) Object.assign(S.rot, d.rot);
     if(d.rotOut) Object.assign(S.rotOut, d.rotOut);
@@ -719,6 +739,23 @@ function byName(n){ return ROSTER.find(m=>m.name===n); }
 function groupOf(n){ return S.assign[n] || 0; }
 function groupMembers(g){ return ROSTER.filter(m=> groupOf(m.name)===g); }
 
+/* ---------- tank groups: 1-4 warriors + 1 bard + 1 cleric, nobody else ---------- */
+function isTankGroup(g){ return !!S.tankGroups[g]; }
+function tankWant(g){ const n = +S.tankGroups[g]; return n>=1 && n<=4 ? n : 4; }
+function tankGroupNums(){
+  return Object.keys(S.tankGroups).map(Number)
+    .filter(g=> g>=1 && g<=MAX_GROUPS && S.tankGroups[g]).sort((a,b)=>a-b);
+}
+/* what a tank group is made of, in the order the builder seats them */
+function tankCount(mem){
+  return {
+    war:  mem.filter(m=>m.cls==="Warrior").length,
+    bard: mem.filter(m=>m.cls==="Bard").length,
+    clr:  mem.filter(m=>m.cls==="Cleric").length,
+    odd:  mem.filter(m=> m.cls!=="Warrior" && m.cls!=="Bard" && m.cls!=="Cleric")
+  };
+}
+
 /* ============================================================
    6. Scoring + auto-build
    ============================================================ */
@@ -756,18 +793,32 @@ function scoreLayout(assign, nUsed, sitOut){
       if(isCasterDps(m)) casterDps++;
       byCls[m.cls] = (byCls[m.cls]||0)+1;
     }
-    if(S.need.tank)   score += tank ? W.tank : -W.tank;
-    if(S.need.healer) score += heal ? W.healer : -W.healer;
-    if(S.need.bard)   score += bard ? W.bard : -W.bard;
-    /* a bard's haste and attack songs only pay off on melee */
-    if(bard && S.need.meleeBard) score += W.bardMelee*(meleeFit - casterDps*0.8);
-    if(clr) score += W.cleric;                      /* a real healer beats a support healer */
-    /* clerics go one per group and want a warrior to heal */
-    if(S.need.clericSolo){ if(clr>1) score -= W.clericApart*(clr-1); }
-    else if(clr>2) score -= W.cleric*(clr-2);
-    if(clr && S.need.clericWarrior) score += war ? W.clericWar : -W.clericWar;
-    for(const c in byCls) if(byCls[c]>2) score -= W.dupe*(byCls[c]-2);
-    if(mem.length < GROUP_SIZE) score -= W.empty*(GROUP_SIZE-mem.length);
+    if(isTankGroup(g)){
+      /* a tank group is its own recipe: N warriors, one bard, one cleric.
+         An empty seat is better than the wrong class, so no empty-slot penalty
+         here — and the reward has to outweigh cohesion or the builder would
+         never pull a warrior out of their box crew. */
+      const TW = W.tankGroup, want = tankWant(g);
+      const odd = mem.length - war - bard - clr;
+      score += TW*Math.min(war, want);
+      if(war > want) score -= TW*(war-want);
+      score += TW*Math.min(bard,1); if(bard>1) score -= TW*(bard-1);
+      score += TW*Math.min(clr,1);  if(clr>1)  score -= TW*(clr-1);
+      score -= TW*odd;
+    }else{
+      if(S.need.tank)   score += tank ? W.tank : -W.tank;
+      if(S.need.healer) score += heal ? W.healer : -W.healer;
+      if(S.need.bard)   score += bard ? W.bard : -W.bard;
+      /* a bard's haste and attack songs only pay off on melee */
+      if(bard && S.need.meleeBard) score += W.bardMelee*(meleeFit - casterDps*0.8);
+      if(clr) score += W.cleric;                      /* a real healer beats a support healer */
+      /* clerics go one per group and want a warrior to heal */
+      if(S.need.clericSolo){ if(clr>1) score -= W.clericApart*(clr-1); }
+      else if(clr>2) score -= W.cleric*(clr-2);
+      if(clr && S.need.clericWarrior) score += war ? W.clericWar : -W.clericWar;
+      for(const c in byCls) if(byCls[c]>2) score -= W.dupe*(byCls[c]-2);
+      if(mem.length < GROUP_SIZE) score -= W.empty*(GROUP_SIZE-mem.length);
+    }
 
     for(const r of rules){
       const w = r.hard ? 1000 : 120;
@@ -831,6 +882,27 @@ function autoBuild(fillOnly){
     }
   }
 
+  /* tank groups get their seats reserved the same way: the greedy pass below
+     places whole box crews, and a crew would swallow the group before a
+     warrior from anywhere else ever got a look at it */
+  for(const g of tankGroupNums()){
+    /* "Fill open slots" should only seat people who are sitting out */
+    const ok = m => !fillOnly || groupOf(m.name)===0 || groupOf(m.name)===g;
+    const grab = (test, n)=>{
+      let have = ROSTER.filter(m=> pinned[m.name]===g && test(m)).length;
+      const cand = ROSTER.filter(m=> !taken.has(m.name) && test(m) && ok(m))
+        .sort((a,b)=> (b.isMain?1:0)-(a.isMain?1:0) || (b.level||0)-(a.level||0) || a.name.localeCompare(b.name));
+      for(const m of cand){
+        if(have >= n) break;
+        if(ROSTER.filter(x=>pinned[x.name]===g).length >= GROUP_SIZE) break;
+        pinned[m.name] = g; taken.add(m.name); have++;
+      }
+    };
+    grab(m=>m.cls==="Warrior", tankWant(g));
+    grab(m=>m.cls==="Bard",    1);
+    grab(m=>m.cls==="Cleric",  1);
+  }
+
   const assign = {};
   const movable = [];
   for(const m of ROSTER){
@@ -844,6 +916,7 @@ function autoBuild(fillOnly){
   let nUsed = S.groupsToUse>0 ? S.groupsToUse : Math.min(MAX_GROUPS, Math.max(1, Math.ceil(total/GROUP_SIZE)));
   /* a rule that names group 12 only makes sense if group 12 is in play */
   for(const r of activeRules()) if((r.type==="groupmin"||r.type==="pin") && r.group>nUsed) nUsed = r.group;
+  for(const g of tankGroupNums()) nUsed = Math.max(nUsed, g);
   for(const n in pinned) nUsed = Math.max(nUsed, pinned[n]);
   /* "Groups to use" is a hard ceiling — on Auto the whole raid window is fair game */
   const gMax = S.groupsToUse>0 ? nUsed : MAX_GROUPS;
@@ -971,6 +1044,29 @@ function diagnose(){
     const mem = groupMembers(g);
     if(!mem.length) continue;
     if(mem.length > GROUP_SIZE) out.push({k:"err", t:`<b>Group ${g}</b> has ${mem.length} — over the 6-slot limit.`, go:g});
+    if(isTankGroup(g)){
+      const want = tankWant(g), c = tankCount(mem);
+      const short = [];
+      if(c.war < want) short.push(`${want-c.war} more warrior${want-c.war===1?"":"s"}`);
+      if(!c.bard) short.push("a bard");
+      if(!c.clr)  short.push("a cleric");
+      if(short.length) out.push({k:"warn", go:g, t:`<b>Group ${g}</b> is a tank group and still needs ${short.join(" and ")}.`});
+      if(c.war > want) out.push({k:"warn", go:g, t:`<b>Group ${g}</b> is set to ${want} warrior${want===1?"":"s"} but has ${c.war}.`});
+      if(c.bard > 1)   out.push({k:"warn", go:g, t:`<b>Group ${g}</b> has ${c.bard} bards — a tank group takes one.`});
+      if(c.clr > 1)    out.push({k:"warn", go:g, t:`<b>Group ${g}</b> has ${c.clr} clerics — a tank group takes one.`});
+      if(c.odd.length){
+        /* a full 72 has nowhere else to put them — that's the raid being full,
+           not a mistake, so it shouldn't shout */
+        let free = 0;
+        for(let g2=1; g2<=MAX_GROUPS; g2++) if(g2!==g) free += GROUP_SIZE - groupMembers(g2).length;
+        out.push({k: free ? "warn" : "info", go:g,
+          t: free
+            ? `<b>Group ${g}</b> is a tank group but has ${c.odd.length} other ${c.odd.length===1?"class":"classes"} in it.`
+            : `<b>Group ${g}</b> is a tank group with ${c.odd.length} spare ${c.odd.length===1?"seat":"seats"} filled — every other group is full.`,
+          det: c.odd.map(m=>m.name+" ("+m.ci.abbr+")").join(", ")});
+      }
+      continue;
+    }
     const miss = [];
     if(S.need.tank   && !mem.some(m=>m.ci.role==="tank"))    miss.push("tank");
     if(S.need.healer && !mem.some(m=>m.ci.role==="healer"))  miss.push("healer");
@@ -1020,6 +1116,17 @@ function diagnose(){
     if(t.main && !mainG && placed.length){
       out.push({k:"warn", t:`<b>${t.main.name}</b> (main) has no group but ${placed.length} of their boxes do.`, go:0});
     }
+  }
+
+  const tgs = tankGroupNums();
+  if(tgs.length){
+    const wantW = tgs.reduce((a,g)=>a+tankWant(g),0);
+    const have = c => ROSTER.filter(m=>m.cls===c).length;
+    const short = [];
+    if(wantW > have("Warrior")) short.push(`${wantW} warriors (raid has ${have("Warrior")})`);
+    if(tgs.length > have("Bard")) short.push(`${tgs.length} bards (raid has ${have("Bard")})`);
+    if(tgs.length > have("Cleric")) short.push(`${tgs.length} clerics (raid has ${have("Cleric")})`);
+    if(short.length) out.push({k:"warn", t:`${tgs.length} tank group${tgs.length===1?"":"s"} would need ${short.join(", ")}.`});
   }
 
   if(S.need.clericSolo){
@@ -1114,29 +1221,72 @@ function renderGrid(){
   const rules = activeRules();
   for(let g=1; g<=MAX_GROUPS; g++){
     const mem = groupMembers(g);
+    const isTG = isTankGroup(g);
+    const tc = tankCount(mem);
     const sec = el("section","grp"); sec.dataset.g = g;
+    if(isTG) sec.classList.add("tank");
     const head = el("header");
     head.appendChild(el("span","gno", String(g)));
     const pips = el("span","pips");
-    const has = {
-      t: mem.some(m=>m.ci.role==="tank"),
-      h: mem.some(m=>m.ci.role==="healer"),
-      b: mem.some(m=>m.ci.role==="bard")
-    };
-    const wants = {t:S.need.tank, h:S.need.healer, b:S.need.bard};
-    [["t","T"],["h","H"],["b","B"]].forEach(([k,lbl])=>{
-      const p = el("span","pip "+k, lbl);
-      if(has[k]) p.classList.add("on");
-      else if(wants[k] && mem.length) p.classList.add("want");
-      p.title = {t:"Tank",h:"Healer",b:"Bard"}[k] + (has[k]?" present":" missing");
-      pips.appendChild(p);
-    });
+    if(isTG){
+      const want = tankWant(g);
+      [["t","W",tc.war>=want,`Warriors: ${tc.war} of ${want}`],
+       ["b","B",tc.bard>=1, `Bard: ${tc.bard} of 1`],
+       ["h","C",tc.clr>=1,  `Cleric: ${tc.clr} of 1`]].forEach(([k,lbl,ok,tip])=>{
+        const p = el("span","pip "+k, lbl);
+        if(ok) p.classList.add("on"); else if(mem.length) p.classList.add("want");
+        p.title = tip;
+        pips.appendChild(p);
+      });
+    }else{
+      const has = {
+        t: mem.some(m=>m.ci.role==="tank"),
+        h: mem.some(m=>m.ci.role==="healer"),
+        b: mem.some(m=>m.ci.role==="bard")
+      };
+      const wants = {t:S.need.tank, h:S.need.healer, b:S.need.bard};
+      [["t","T"],["h","H"],["b","B"]].forEach(([k,lbl])=>{
+        const p = el("span","pip "+k, lbl);
+        if(has[k]) p.classList.add("on");
+        else if(wants[k] && mem.length) p.classList.add("want");
+        p.title = {t:"Tank",h:"Healer",b:"Bard"}[k] + (has[k]?" present":" missing");
+        pips.appendChild(p);
+      });
+    }
     head.appendChild(pips);
     const cnt = el("span","cnt", mem.length+"/6");
     if(mem.length===GROUP_SIZE) cnt.classList.add("full");
     if(mem.length>GROUP_SIZE) cnt.classList.add("over");
     head.appendChild(cnt);
+
+    /* the tank-group tick — stopPropagation so it doesn't count as a click on
+       the group card, which is how a selected character gets moved in */
+    const tgl = el("label","tgtoggle");
+    tgl.title = "Tank group: warriors + 1 bard + 1 cleric, nobody else";
+    const tcb = el("input"); tcb.type="checkbox"; tcb.checked = isTG;
+    tcb.onchange = ()=>{
+      if(tcb.checked) S.tankGroups[g] = tankWant(g);
+      else delete S.tankGroups[g];
+      renderAll(); save();
+    };
+    tgl.onclick = e=> e.stopPropagation();
+    tgl.appendChild(tcb); tgl.appendChild(el("span",null,"TANK"));
+    head.appendChild(tgl);
     sec.appendChild(head);
+
+    if(isTG){
+      const bar = el("div","tgbar");
+      bar.title = "How many warriors this tank group should hold";
+      bar.appendChild(el("span",null,"wants"));
+      const wsel = el("select");
+      for(let i=1;i<=4;i++) wsel.appendChild(new Option(String(i), String(i)));
+      wsel.value = String(tankWant(g));
+      wsel.onclick = e=> e.stopPropagation();
+      wsel.onchange = ()=>{ S.tankGroups[g] = +wsel.value; renderAll(); save(); };
+      bar.appendChild(wsel);
+      bar.appendChild(el("span",null,"WAR + 1 BRD + 1 CLR"));
+      sec.appendChild(bar);
+    }
 
     const ul = el("ul","slots");
     mem.sort((a,b)=> ({tank:0,healer:1,bard:2,support:3,dps:4,unknown:5})[a.ci.role]-({tank:0,healer:1,bard:2,support:3,dps:4,unknown:5})[b.ci.role] || a.name.localeCompare(b.name));
@@ -1146,12 +1296,21 @@ function renderGrid(){
 
     const flags = [];
     if(mem.length){
-      if(S.need.tank && !has.t) flags.push("no tank");
-      if(S.need.healer && !has.h) flags.push("no healer");
-      if(S.need.bard && !has.b) flags.push("no bard");
-      const clrN = mem.filter(m=>m.cls==="Cleric").length;
-      if(S.need.clericSolo && clrN>1) flags.push(clrN+" clerics");
-      if(S.need.clericWarrior && clrN && !mem.some(m=>m.cls==="Warrior")) flags.push("cleric, no warrior");
+      if(isTG){
+        const want = tankWant(g);
+        if(tc.war < want) flags.push(`needs ${want-tc.war} more warrior${want-tc.war===1?"":"s"}`);
+        if(tc.war > want) flags.push(`${tc.war} warriors, wants ${want}`);
+        if(!tc.bard) flags.push("no bard"); else if(tc.bard>1) flags.push(tc.bard+" bards");
+        if(!tc.clr)  flags.push("no cleric"); else if(tc.clr>1) flags.push(tc.clr+" clerics");
+        if(tc.odd.length) flags.push("not tank group: "+tc.odd.map(m=>m.ci.abbr).join(", "));
+      }else{
+        if(S.need.tank && !mem.some(m=>m.ci.role==="tank")) flags.push("no tank");
+        if(S.need.healer && !mem.some(m=>m.ci.role==="healer")) flags.push("no healer");
+        if(S.need.bard && !mem.some(m=>m.ci.role==="bard")) flags.push("no bard");
+        const clrN = tc.clr;
+        if(S.need.clericSolo && clrN>1) flags.push(clrN+" clerics");
+        if(S.need.clericWarrior && clrN && !tc.war) flags.push("cleric, no warrior");
+      }
       for(const r of rules){
         if(r.type==="maxclass"){ const n=mem.filter(m=>m.cls===r.cls).length; if(n>r.n) flags.push(`${n}× ${r.cls}`); }
         if(r.type==="groupmin" && r.group===g){
@@ -1309,7 +1468,33 @@ function renderRules(b){
   gsel.value = String(S.groupsToUse);
   gsel.onchange = ()=>{ S.groupsToUse = +gsel.value; save(); };
   gl.appendChild(gsel); nc.appendChild(gl);
+  nc.appendChild(el("p","hint","These apply to normal groups. A group ticked TANK on the board ignores them and takes warriors + 1 bard + 1 cleric instead."));
   b.appendChild(nc);
+
+  /* tank groups are ticked on the board itself — this is just the overview */
+  const tgs = tankGroupNums();
+  const tgc = el("div","card");
+  tgc.appendChild(sectionTitle("Tank groups"));
+  if(!tgs.length){
+    tgc.appendChild(el("div","empty-hint","None. Tick TANK on a group header to make one."));
+  }else{
+    tgs.forEach(g=>{
+      const c = tankCount(groupMembers(g));
+      const d = el("div","rule");
+      d.appendChild(el("span","rt hard","tank"));
+      d.appendChild(el("span","txt", `Group ${g}: ${tankWant(g)} warrior${tankWant(g)===1?"":"s"} + bard + cleric — has ${c.war} WAR, ${c.bard} BRD, ${c.clr} CLR`));
+      const x = el("button","x","×"); x.title="Make it a normal group again";
+      x.onclick=()=>{ delete S.tankGroups[g]; renderAll(); save(); };
+      d.appendChild(x);
+      tgc.appendChild(d);
+    });
+    const row0 = el("div","btnrow");
+    const clrAll = el("button","btn sm ghost","Clear all tank groups");
+    clrAll.onclick = ()=>{ S.tankGroups = {}; renderAll(); save(); toast("Tank groups cleared."); };
+    row0.appendChild(clrAll); tgc.appendChild(row0);
+  }
+  tgc.appendChild(el("p","hint","Warriors are picked mains first, then by level. Build groups seats them before anything else, so a tank group will split a box crew to get its warriors. Leftover seats are left empty rather than filled with the wrong class."));
+  b.appendChild(tgc);
 
   b.appendChild(sectionTitle("Your rules"));
   if(!S.rules.length) b.appendChild(el("div","empty-hint","No rules yet. Add one below."));
@@ -1392,7 +1577,8 @@ function renderRules(b){
   [["tank","Tank in every group"],["healer","Healer in every group"],["bard","Bard in every group"],
    ["cleric","Prefer a cleric over a druid/shaman"],["clericApart","Never two clerics in a group"],
    ["clericWar","Cleric beside a warrior"],["bardMelee","Melee DPS beside a bard"],
-   ["cohesion","Keep a team together"],["dupe","Avoid stacking one class"]]
+   ["cohesion","Keep a team together"],["dupe","Avoid stacking one class"],
+   ["tankGroup","Fill tank groups correctly"]]
   .forEach(([k,lbl])=>{
     wg.appendChild(el("label",null,lbl));
     const i = el("input"); i.type="number"; i.value=S.weights[k]; i.min="0"; i.max="500";
@@ -1400,7 +1586,7 @@ function renderRules(b){
     wg.appendChild(i);
   });
   w.appendChild(wg);
-  w.appendChild(el("p","hint","Higher wins when two goals collide. Cohesion above the role numbers keeps boxes together even if a group ends up without a bard. Beastlords count as melee but rank last, so they give up a bard slot to a rogue or monk. Keeping clerics apart is set above cohesion, so it will split a box crew rather than double up two clerics."));
+  w.appendChild(el("p","hint","Higher wins when two goals collide. Cohesion above the role numbers keeps boxes together even if a group ends up without a bard. Beastlords count as melee but rank last, so they give up a bard slot to a rogue or monk. Keeping clerics apart is set above cohesion, so it will split a box crew rather than double up two clerics. Tank groups sit above cohesion too — drop that number below it if you would rather keep crews whole than fill a tank group."));
   b.appendChild(w);
 }
 
@@ -1412,7 +1598,7 @@ function layoutText(){
   L.push("");
   for(let g=1; g<=MAX_GROUPS; g++){
     const mem = groupMembers(g); if(!mem.length) continue;
-    L.push(`Group ${g}`);
+    L.push(`Group ${g}` + (isTankGroup(g) ? `   [tank group — ${tankWant(g)} warriors + bard + cleric]` : ""));
     mem.forEach(m=> L.push(`   ${(m.ci.abbr).padEnd(4)} ${m.name.padEnd(16)} ${m.owner!==m.name?"("+m.owner+")":""}`));
     L.push("");
   }
