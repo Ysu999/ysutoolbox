@@ -347,7 +347,9 @@ textarea.out{
     <span class="sub">Ysu Toolbox</span>
   </div>
   <div class="srcchip empty" id="chipRaid" title="The raid roster. Groups are built from this file only."><b>No raid dump</b><span>/output raid — the roster</span></div>
+  <button class="btn sm" id="btnUpRaid" title="Load a RaidRoster_*.txt by hand, without picking a folder">Upload raid</button>
   <div class="srcchip empty" id="chipGuild" title="Read only to match each box to its owner, using the guild note. Nobody is pulled into the raid from this file."><b>No guild dump</b><span>/outputfile guild — box owners</span></div>
+  <button class="btn sm" id="btnUpGuild" title="Load a guild dump by hand, without picking a folder">Upload guild</button>
   <button class="btn" id="btnFolder">Choose dump folder</button>
   <button class="btn" id="btnRescan" disabled>Rescan</button>
   <label class="row tiny" style="margin:0;gap:5px" title="Re-check the folder every 20 seconds and load newer dumps automatically">
@@ -357,6 +359,8 @@ textarea.out{
   <button class="btn primary" id="btnBuild">Build groups</button>
   <button class="btn" id="btnRevert" title="Put everyone back where the raid dump had them">Revert to dump</button>
   <input type="file" id="filePick" multiple accept=".txt" hidden>
+  <input type="file" id="filePickRaid" accept=".txt" hidden>
+  <input type="file" id="filePickGuild" accept=".txt" hidden>
 </div>
 
 <div id="setup" class="setup">
@@ -367,6 +371,11 @@ textarea.out{
   <div class="drop" id="dropZone">
     <button class="btn primary" id="btnFolder2">Choose dump folder</button>
     <p class="hint" style="margin-top:14px">
+      Or load each dump by hand:
+      <button class="btn sm" id="btnUpRaid2">Upload raid dump</button>
+      <button class="btn sm" id="btnUpGuild2">Upload guild dump</button>
+    </p>
+    <p class="hint" style="margin-top:10px">
       Folder access needs Chrome or Edge. On Firefox or Safari, <button class="btn sm ghost" id="btnFiles2">pick the two files</button>
       or drag them here instead.
     </p>
@@ -623,6 +632,44 @@ async function scanFolder(announce){
 }
 
 function openFilePicker(){ document.getElementById("filePick").click(); }
+
+/* Explicit single-dump upload — the user already told us which kind it is,
+   so parse it as that and say so plainly if it doesn't fit. */
+async function loadOneFile(f, kind){
+  if(!f) return;
+  const txt = await f.text();
+  const st  = dumpStamp(f.name, f.lastModified);
+
+  if(kind === "raid"){
+    const rows = parseRaid(txt);
+    if(!rows.length){
+      toast("That doesn't look like a raid dump — no group/name rows in it.");
+      return;
+    }
+    S.raid = rows;
+    S.files.raid = {name:f.name, stamp:st};
+    toast(`Raid dump loaded — ${rows.length} character${rows.length===1?"":"s"}.`);
+  }else{
+    if(isRaidFile(f.name) || parseRaid(txt).length){
+      toast("That looks like a raid dump. Use Upload raid for it.");
+      return;
+    }
+    const g = parseGuild(txt);
+    if(!g.size){
+      toast("That doesn't look like a guild dump — no roster rows in it.");
+      return;
+    }
+    S.guild = g;
+    S.files.guild = {name:f.name, stamp:st};
+    toast(`Guild dump loaded — ${g.size} member${g.size===1?"":"s"}.`);
+  }
+
+  /* The raid dump is what decides who's in the raid, so only open the board
+     once we have one. A guild dump on its own just updates the chip. */
+  if(S.raid.length) afterLoad();
+  else { renderChips(); save(); }
+}
+
 async function loadPickedFiles(files){
   let changed=false;
   for(const f of files){
@@ -1888,6 +1935,12 @@ document.querySelectorAll(".tab").forEach(t=>{
 $("#btnFolder").onclick = chooseFolder;
 $("#btnFolder2").onclick = chooseFolder;
 $("#btnFiles2").onclick = openFilePicker;
+$("#btnUpRaid").onclick   = ()=> $("#filePickRaid").click();
+$("#btnUpRaid2").onclick  = ()=> $("#filePickRaid").click();
+$("#btnUpGuild").onclick  = ()=> $("#filePickGuild").click();
+$("#btnUpGuild2").onclick = ()=> $("#filePickGuild").click();
+$("#filePickRaid").onchange  = e=>{ loadOneFile(e.target.files[0], "raid");  e.target.value=""; };
+$("#filePickGuild").onchange = e=>{ loadOneFile(e.target.files[0], "guild"); e.target.value=""; };
 $("#btnRescan").onclick = ()=> scanFolder(true);
 $("#chkWatch").onchange = e=> setWatch(e.target.checked);
 $("#btnBuild").onclick = ()=> autoBuild(false);

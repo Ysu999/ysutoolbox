@@ -379,7 +379,7 @@
   </div>
 
   <div class="footer-note" id="footerNote">
-    Click an empty box to assign its log file. A box turns red the moment its log contains <strong>"You are no longer auto-following"</strong>, and turns green again automatically when the log contains <strong>"You will now auto-follow"</strong>. If your follow command doesn't log that second phrase, you can also click a red box to acknowledge it back to green manually. Hover a box for the file icon to reassign or clear it. Use <strong>Pop out</strong> to float a compact, always-on-top copy of the grid over EverQuest — drag its edge to resize, and it keeps reading your log files live as long as this tab stays open. Check <strong>Alert sound</strong> to get a chime whenever a box drops follow — use the built-in default or upload your own clip with <strong>Upload sound</strong>, and preview it any time with <strong>Test sound</strong>. Use <strong>Save profile</strong> to remember your current file assignments, layout, and sound choice under a name, and <strong>Load profile</strong> to restore them later — the browser may ask you to re-confirm file access once per session, which is a security requirement and not something this tool can skip.
+    Click an empty box to assign its log file. Boxes start <strong>red</strong> — nothing is assumed to be following until the log says so, or you click the box to acknowledge it green. After that, a box turns red the moment its log contains <strong>"You are no longer auto-following"</strong>, and turns green again automatically when the log contains <strong>"You will now auto-follow"</strong>. If your follow command doesn't log that second phrase, you can also click a red box to acknowledge it back to green manually. Hover a box for the file icon to reassign or clear it. Use <strong>Pop out</strong> to float a compact, always-on-top copy of the grid over EverQuest — drag its edge to resize, and it keeps reading your log files live as long as this tab stays open. Check <strong>Alert sound</strong> to get a chime whenever a box drops follow — use the built-in default or upload your own clip with <strong>Upload sound</strong>, and preview it any time with <strong>Test sound</strong>. Use <strong>Save profile</strong> to remember your current file assignments, layout, and sound choice under a name, and <strong>Load profile</strong> to restore them later — the browser may ask you to re-confirm file access once per session, which is a security requirement and not something this tool can skip.
   </div>
 
 </div>
@@ -560,7 +560,7 @@ async function loadProfile(name, opts = {}) {
       }
     }
     if (granted) {
-      boxes[idx] = { handle, fileName, lastSize: undefined, status: 'following', eventTime: null, justChanged: false };
+      boxes[idx] = { handle, fileName, lastSize: undefined, status: 'broken', eventTime: null, justChanged: false };
     } else {
       boxes[idx] = { handle, fileName, lastSize: undefined, status: 'unassigned', eventTime: null, justChanged: false };
       pendingReconnect.push(idx);
@@ -770,7 +770,9 @@ async function assignFile(idx) {
       handle,
       fileName: file.name,
       lastSize: file.size,
-      status: 'following',
+      // Start red: assume nothing is following until the log proves otherwise
+      // (or you click the box to acknowledge it green).
+      status: 'broken',
       eventTime: null,
       justChanged: false
     };

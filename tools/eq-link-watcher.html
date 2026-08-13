@@ -312,6 +312,14 @@
   // Common chat line: "Name says, 'message'" / "Name tells the guild, 'message'" / "Name tells you, 'message'"
   const SPEAKER_RE = /^(\S+(?:\s\S+)?)\s(?:says|say|shouts|tells the guild|tells the raid|tells you|tells|auctions|says out of character)[,:]?\s?['"]?(.*)$/i;
 
+  // Everything below comes out of a log file, which means anything a player
+  // typed in chat. It must be escaped before it touches innerHTML.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[c]));
+  }
+
   function normalizeUrl(raw) {
     let u = raw.replace(/[.,;:!?)]+$/,''); // strip trailing punctuation
     if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
@@ -358,13 +366,13 @@
       row.innerHTML = `
         <span class="kind ${i.kind}">${i.kind === 'discord' ? 'Discord' : 'Link'}</span>
         <div class="row-main">
-          <a href="${i.url}" target="_blank" rel="noopener noreferrer">${i.url}</a>
+          <a href="${esc(i.url)}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">${esc(i.url)}</a>
           <div class="row-meta">
-            ${i.who ? `<span class="who">${i.who}</span>` : ''}
-            ${i.when ? `<span>${i.when}</span>` : ''}
-            <button class="copy-btn" data-url="${i.url}">Copy</button>
+            ${i.who ? `<span class="who">${esc(i.who)}</span>` : ''}
+            ${i.when ? `<span>${esc(i.when)}</span>` : ''}
+            <button class="copy-btn" data-url="${esc(i.url)}">Copy</button>
           </div>
-          <div class="row-line">${i.rawLine}</div>
+          <div class="row-line">${esc(i.rawLine)}</div>
         </div>
       `;
       feedBody.appendChild(row);
