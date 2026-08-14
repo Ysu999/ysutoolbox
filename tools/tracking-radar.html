@@ -1,0 +1,1049 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tracking Radar — Ysu Toolbox</title>
+<style id="appStyle">
+:root{
+  --bg:#0a0d10;
+  --panel:#12181d;
+  --panel-2:#171f26;
+  --line:#243039;
+  --text:#d8e2e8;
+  --dim:#7d8f9c;
+  --gold:#e0b25a;
+  --phos:#5fe3a8;
+  --phos-dim:#1d5f47;
+  --hot:#ff7a5c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif;
+  min-height:100vh;
+}
+button,select,input{font:inherit;color:inherit}
+button{
+  background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+  padding:7px 12px;border-radius:5px;cursor:pointer;
+}
+button:hover{border-color:var(--gold);color:#fff}
+button:disabled{opacity:.4;cursor:default;border-color:var(--line);color:var(--dim)}
+button.primary{background:#20303a;border-color:#33505f;color:#eaf4f8}
+button.primary:hover{border-color:var(--phos)}
+button:focus-visible,select:focus-visible,input:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--gold);outline-offset:2px
+}
+a{color:var(--gold)}
+
+/* ---------- page chrome ---------- */
+header.top{
+  border-bottom:1px solid var(--line);background:var(--panel);
+  padding:14px 20px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap
+}
+header.top h1{
+  margin:0;font-size:19px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--gold)
+}
+header.top .sub{color:var(--dim);font-size:13px}
+main{
+  display:grid;grid-template-columns:minmax(320px,460px) 1fr;gap:18px;
+  padding:18px;align-items:start;max-width:1180px;margin:0 auto
+}
+@media (max-width:840px){main{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+.panel h2{
+  margin:0 0 12px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:600
+}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row+.row{margin-top:10px}
+.hint{color:var(--dim);font-size:12.5px;margin:10px 0 0}
+.mono{font-family:ui-monospace,Consolas,"Courier New",monospace}
+
+/* ---------- radar unit (moves into the pop-out window) ---------- */
+.radar-unit{
+  display:flex;flex-direction:column;gap:10px;align-items:center;
+  background:#070a0c;border:1px solid var(--line);border-radius:8px;padding:12px
+}
+.scope{width:100%;height:auto;max-width:380px;display:block}
+.scope .ring{fill:none;stroke:#1b3a30;stroke-width:1}
+.scope .sw{stop-color:var(--phos)}
+.scope .lost-wash{fill:var(--hot);opacity:0;transition:opacity .35s}
+.radar-unit.lost{--phos:var(--hot)}
+.radar-unit.lost .lost-wash{opacity:.13}
+.radar-unit.lost .ring{stroke:#5c2626}
+.radar-unit.lost .spoke{stroke:#4a1c1c}
+.radar-unit.lost .spoke.axis{stroke:#6b2a2a}
+.radar-unit.lost .cardinal{fill:#8a6060}
+.radar-unit.lost .readout .bearing{font-weight:700;letter-spacing:.14em}
+.radar-unit.lost .readout{border-top-color:#3a1a1a}
+.scope .glass{fill:url(#glassGrad)}
+.scope .spoke{stroke:#16302a;stroke-width:1}
+.scope .spoke.axis{stroke:#1f4a3d}
+.scope .hub{fill:var(--phos)}
+.scope .cardinal{
+  fill:#5c7a72;font:600 9px ui-monospace,Consolas,monospace;letter-spacing:.16em;
+  text-anchor:middle;text-transform:uppercase
+}
+.scope .cardinal.major{fill:#86a89d}
+#needle{transition:opacity .3s linear}
+#needle .halo{stroke:#04100b;stroke-width:10;stroke-linecap:round}
+#needle .core{stroke:var(--phos);stroke-width:4;stroke-linecap:round}
+#needle polygon{fill:var(--phos);stroke:#04100b;stroke-width:1.5}
+#needle .tip{fill:var(--phos)}
+#needle.stale .core{stroke:var(--hot)}
+#needle.stale polygon,#needle.stale .tip{fill:var(--hot)}
+#needle.none{opacity:.1}
+.ghost{fill:#2f7d63}
+.ghost-label{fill:#4d7a6d;font:500 8px ui-monospace,monospace;text-anchor:middle}
+
+.readout{width:100%;text-align:center;border-top:1px solid #14201c;padding-top:9px}
+.readout .name{
+  font-size:17px;font-weight:600;color:#eaf5f0;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis
+}
+.readout .name.empty{color:#40544c;font-weight:400;font-style:italic}
+.readout .bearing{
+  font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--phos);
+  letter-spacing:.1em;text-transform:uppercase;margin-top:2px
+}
+.readout .age{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--dim);margin-top:3px}
+.readout .age.stale{color:var(--hot)}
+
+/* ---------- contacts ---------- */
+.contacts{list-style:none;margin:0;padding:0;max-height:330px;overflow:auto}
+.contacts li{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:5px;
+  border:1px solid transparent;cursor:pointer
+}
+.contacts li{cursor:default}
+.contacts li.sel{border-color:var(--phos-dim);background:#111d19}
+.contacts .cname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.contacts .cbear{
+  font-family:ui-monospace,monospace;font-size:11.5px;color:var(--phos);
+  text-transform:uppercase;letter-spacing:.06em
+}
+.contacts .cage{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim);min-width:52px;text-align:right}
+.contacts .cage.stale{color:var(--hot)}
+.empty-note{color:var(--dim);font-size:13px;padding:8px 2px}
+.saved li{cursor:default}
+.saved li:hover{background:transparent}
+.saved .smeta{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim);white-space:nowrap}
+.saved button{padding:4px 9px;font-size:12px}
+.saved button.del{color:var(--dim)}
+.saved button.del:hover{border-color:var(--hot);color:var(--hot)}
+
+/* ---------- status + drop ---------- */
+.status{
+  display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);
+  font-family:ui-monospace,monospace
+}
+.dot{width:8px;height:8px;border-radius:50%;background:#3a4a54}
+.dot.on{background:var(--phos);box-shadow:0 0 7px var(--phos)}
+.dot.file{background:var(--gold)}
+.drop{
+  border:1px dashed #2b3a44;border-radius:6px;padding:14px;text-align:center;
+  color:var(--dim);font-size:13px;margin-top:10px
+}
+.drop.over{border-color:var(--phos);color:var(--phos);background:#0f1a16}
+.replay{margin-top:12px;display:none}
+.replay.on{display:block}
+input[type=range]{width:100%;accent-color:var(--gold)}
+.clock{font-family:ui-monospace,monospace;font-size:12px;color:var(--dim)}
+label.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--dim);cursor:pointer}
+input[type=number]{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:5px 7px;width:64px
+}
+select{background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+
+@media (prefers-reduced-motion:reduce){
+  #sweep{opacity:.3}
+}
+
+/* ---------- pop-out window layout ---------- */
+body.pip{
+  background:#070a0c;display:flex;padding:6px;overflow:hidden;height:100vh
+}
+body.pip .radar-unit{
+  flex:1;border:none;padding:2px;justify-content:center;background:transparent
+}
+body.pip .scope{max-width:none;flex:1;min-height:0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Tracking Radar</h1>
+  <span class="sub">Bearing to your target, read straight from the log.</span>
+</header>
+
+<main>
+  <!-- LEFT: the scope -->
+  <section class="panel">
+    <h2>Scope</h2>
+    <div id="radarHost">
+      <div id="radarUnit" class="radar-unit">
+        <svg class="scope" viewBox="-130 -130 260 260" xmlns="http://www.w3.org/2000/svg" aria-label="Radar scope">
+          <defs>
+            <radialGradient id="glassGrad" cx="50%" cy="46%" r="60%">
+              <stop offset="0%" stop-color="#0d2620"/>
+              <stop offset="100%" stop-color="#060d0b"/>
+            </radialGradient>
+            <linearGradient id="sweepGrad" x1="0" y1="1" x2="0" y2="0">
+              <stop class="sw" offset="0%" stop-opacity="0"/>
+              <stop class="sw" offset="100%" stop-opacity=".28"/>
+            </linearGradient>
+          </defs>
+
+          <circle class="glass" r="104"/>
+          <circle class="lost-wash" r="104"/>
+          <circle class="ring" r="104"/>
+          <circle class="ring" r="70"/>
+          <circle class="ring" r="36"/>
+
+          <g class="spokes">
+            <line class="spoke axis" x1="0" y1="-104" x2="0" y2="104"/>
+            <line class="spoke axis" x1="-104" y1="0" x2="104" y2="0"/>
+            <line class="spoke" x1="-73.5" y1="-73.5" x2="73.5" y2="73.5"/>
+            <line class="spoke" x1="73.5" y1="-73.5" x2="-73.5" y2="73.5"/>
+          </g>
+
+          <g id="sweep">
+            <path d="M0,0 L0,-104 A104,104 0 0,0 -60,-85 Z" fill="url(#sweepGrad)"/>
+            <animateTransform id="sweepSpin" attributeName="transform" attributeType="XML"
+                              type="rotate" from="0" to="360" dur="3.6s" repeatCount="indefinite"/>
+          </g>
+
+          <g id="ghosts"></g>
+
+          <g id="needle" class="none">
+            <line class="halo" x1="0" y1="6" x2="0" y2="-82"/>
+            <line class="core" x1="0" y1="6" x2="0" y2="-82"/>
+            <polygon points="0,-106 -11,-80 11,-80"/>
+            <circle class="tip" cx="0" cy="-95" r="3"/>
+          </g>
+          <circle class="hub" r="4"/>
+
+          <text class="cardinal major" x="0" y="-112">Ahead</text>
+          <text class="cardinal major" x="115" y="4">Right</text>
+          <text class="cardinal major" x="0" y="122">Behind</text>
+          <text class="cardinal major" x="-115" y="4">Left</text>
+        </svg>
+
+        <div class="readout">
+          <div class="name empty" id="rdName">No contact</div>
+          <div class="bearing" id="rdBearing">—</div>
+          <div class="age" id="rdAge">waiting for a bearing</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="btnPop" class="primary">Pop out radar</button>
+      <select id="popMode" aria-label="Pop-out style">
+        <option value="pip">Always on top</option>
+        <option value="win">Separate window</option>
+      </select>
+      <button id="btnTest">Test all 8</button>
+      <span class="status"><span class="dot" id="dot"></span><span id="statusTxt">No log loaded</span></span>
+    </div>
+    <p class="hint" id="popHint"></p>
+  </section>
+
+  <!-- RIGHT: source + contacts -->
+  <section>
+    <div class="panel">
+      <h2>Log source</h2>
+      <div class="row">
+        <button id="btnLive" class="primary">Follow live log</button>
+        <button id="btnPick">Open a log file</button>
+        <button id="btnReopen" style="display:none"></button>
+        <button id="btnStop" disabled>Stop</button>
+      </div>
+      <div class="drop" id="drop">or drop an <span class="mono">eqlog_Name_server.txt</span> here</div>
+
+      <div class="row" id="sessBar" style="display:none;margin-top:12px">
+        <select id="sessSel" aria-label="Tracking session" style="flex:1;min-width:0"></select>
+        <button id="btnSave">Save session</button>
+      </div>
+      <div class="row">
+        <label class="chk">Start a new session after
+          <input type="number" id="gapMin" min="1" max="240" value="5"> min without a bearing
+        </label>
+      </div>
+
+      <p class="hint" id="srcHint">
+        Only the most recent run of tracking messages is loaded — old sessions further up the log are listed
+        in the dropdown if you want them. <b>Follow live log</b> keeps reading the file as EverQuest writes to it
+        (Chrome or Edge).
+      </p>
+
+      <div class="replay" id="replay">
+        <div class="row" style="justify-content:space-between">
+          <div class="row">
+            <button id="btnPlay">Play</button>
+            <button id="btnPrev" title="Previous contact">&#9664;&#9664;</button>
+            <button id="btnNext" title="Next contact">&#9654;&#9654;</button>
+            <select id="speed" aria-label="Replay speed">
+              <option value="1">1&times;</option>
+              <option value="4">4&times;</option>
+              <option value="16" selected>16&times;</option>
+              <option value="60">60&times;</option>
+            </select>
+          </div>
+          <span class="clock" id="clock">—</span>
+        </div>
+        <input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Replay position" style="margin-top:10px">
+        <label class="chk" style="margin-top:6px"><input type="checkbox" id="skipGaps" checked> Skip idle gaps</label>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>Recent targets</h2>
+      <ul class="contacts" id="contacts"></ul>
+      <div class="empty-note" id="noContacts">Nothing tracked yet.</div>
+      <div class="row" style="margin-top:12px">
+        <label class="chk">Stale after
+          <input type="number" id="staleSec" min="2" max="600" value="20"> s
+        </label>
+        <button id="btnClear">Clear</button>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>Saved logs</h2>
+      <ul class="contacts saved" id="savedList"></ul>
+      <div class="empty-note" id="noSaved">Nothing saved yet. Load a log, then choose <b>Save session</b>.</div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>Privacy</h2>
+      <p class="hint" style="margin:0">
+        Your log never leaves this machine. Everything is parsed in the browser — no upload, no server, no account.
+      </p>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* ============================ parsing ============================ */
+
+const BEARINGS = [
+  { re: /^(.+?) is straight ahead\.$/,               deg: 0,   label: "Straight ahead" },
+  { re: /^(.+?) is ahead and to the right\.$/,       deg: 45,  label: "Ahead / right"  },
+  { re: /^(.+?) is to the right\.$/,                 deg: 90,  label: "Right"          },
+  { re: /^(.+?) is behind you and to the right\.$/,  deg: 135, label: "Behind / right" },
+  { re: /^(.+?) is behind you\.$/,                   deg: 180, label: "Behind"         },
+  { re: /^(.+?) is behind you and to the left\.$/,   deg: 225, label: "Behind / left"  },
+  { re: /^(.+?) is to the left\.$/,                  deg: 270, label: "Left"           },
+  { re: /^(.+?) is ahead and to the left\.$/,        deg: 315, label: "Ahead / left"   }
+];
+const SHORT = { 0:"AHEAD", 45:"A-RIGHT", 90:"RIGHT", 135:"B-RIGHT", 180:"BEHIND", 225:"B-LEFT", 270:"LEFT", 315:"A-LEFT" };
+const STAMP = /^\[(.{20,26}?)\]\s*(.*)$/;
+// EQ prints this when the mob dies, zones, or you drop tracking.
+const LOST = /^you have lost or do not have a tracking target/i;
+const isBearing = e => !e.lost;
+
+// Returns {t, name, deg, label} or null.
+function parseLine(raw, fallbackTime) {
+  const line = raw.replace(/\r$/, "").trim();
+  if (!line) return null;
+  let body = line, t = fallbackTime;
+  const m = STAMP.exec(line);
+  if (m) {
+    const d = new Date(m[1]);
+    if (!isNaN(d)) t = d.getTime();
+    body = m[2].trim();
+  }
+  if (LOST.test(body)) return { t, lost: true };
+  for (const b of BEARINGS) {
+    const hit = b.re.exec(body);
+    if (hit) {
+      const name = hit[1].trim();
+      if (!name || name.length > 64) return null;
+      return { t, name, deg: b.deg, label: b.label };
+    }
+  }
+  return null;
+}
+
+const LABEL_FOR = Object.fromEntries(BEARINGS.map(b => [b.deg, b.label]));
+
+function parseAll(text) {
+  const base = Date.now(), out = [];
+  let i = 0;
+  for (const line of text.split("\n")) {
+    const ev = parseLine(line, base + (i++) * 1000);
+    if (ev) out.push(ev);
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
+}
+
+// A session is a run of bearings with no long silence in the middle.
+const gapMs = () => Math.max(1, +document.getElementById("gapMin").value || 5) * 60000;
+
+function splitSessions(events, gap) {
+  const out = [];
+  let cur = null;
+  for (const e of events) {
+    if (!cur || e.t - cur.end > gap) { cur = { start: e.t, end: e.t, events: [e] }; out.push(cur); }
+    else { cur.end = e.t; cur.events.push(e); }
+  }
+  return out;
+}
+
+/* ============================ storage ============================ */
+
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("ysu-radar", 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains("logs")) db.createObjectStore("logs", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("kv"))   db.createObjectStore("kv",   { keyPath: "k" });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbRun(store, mode, fn) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(store, mode);
+    const rq = fn(tx.objectStore(store));
+    tx.onerror = () => rej(tx.error);
+    tx.oncomplete = () => res(rq && rq.result);
+  });
+}
+const dbPut = (store, val) => idbRun(store, "readwrite", s => s.put(val));
+const dbDel = (store, key) => idbRun(store, "readwrite", s => s.delete(key));
+const dbGet = (store, key) => idbRun(store, "readonly",  s => s.get(key));
+const dbAll = (store)      => idbRun(store, "readonly",  s => s.getAll());
+
+/* ============================ state ============================ */
+
+const state = {
+  mode: "idle",            // idle | live | file
+  targets: new Map(),      // name -> {name, deg, label, t, count}
+  events: [],              // file mode: the selected session, sorted by t
+  sessions: [],            // all sessions found in what was read
+  sessionIdx: -1,
+  sourceName: "",
+  cursor: 0,
+  playing: false,
+  clock: 0,                // virtual time in file mode
+  selected: null,
+  handle: null,
+  offset: 0,
+  carry: "",
+  liveEvents: [],          // live mode: every bearing seen this session, for saving
+  poll: null,
+  popWin: null
+};
+
+const $ = s => document.querySelector(s);
+const el = {
+  needle: $("#needle"), ghosts: $("#ghosts"),
+  rdName: $("#rdName"), rdBearing: $("#rdBearing"), rdAge: $("#rdAge"),
+  contacts: $("#contacts"), noContacts: $("#noContacts"),
+  dot: $("#dot"), status: $("#statusTxt"),
+  replay: $("#replay"), scrub: $("#scrub"), clock: $("#clock"),
+  unit: $("#radarUnit"), host: $("#radarHost")
+};
+
+const now = () => state.mode === "file" ? state.clock : Date.now();
+const staleMs = () => Math.max(2, +$("#staleSec").value || 20) * 1000;
+
+function record(ev) {
+  if (state.mode === "live") {
+    state.liveEvents.push(ev);
+    if (state.liveEvents.length > 50000) state.liveEvents.splice(0, 10000);
+  }
+  if (ev.lost) return markLost(ev.t);
+  const prev = state.targets.get(ev.name);
+  state.targets.set(ev.name, {
+    name: ev.name, deg: ev.deg, label: ev.label, t: ev.t,
+    count: prev ? prev.count + 1 : 1
+  });
+  state.selected = ev.name;   // EQ tracks one target at a time — newest always wins
+}
+
+// No name comes with the lost message, so it lands on the contact you were tracking.
+function markLost(t) {
+  let name = state.selected;
+  if (!name || !state.targets.has(name)) {
+    let newest = null;
+    for (const v of state.targets.values()) if (!newest || v.t > newest.t) newest = v;
+    name = newest && newest.name;
+  }
+  if (!name) return;
+  const tgt = state.targets.get(name);
+  tgt.lost = true;
+  tgt.lostAt = t;
+  state.selected = name;
+}
+
+/* ============================ rendering ============================ */
+
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Rotate with the SVG transform ATTRIBUTE, not CSS. rotate(a) turns about user-space
+// (0,0), which is the middle of the scope — no transform-box/transform-origin involved,
+// so 90/180/270 behave exactly like every other angle.
+let needleTo = 0, needleAt = 0, needleSet = false;
+
+function setNeedle(deg) {
+  const delta = ((deg - (needleTo % 360)) % 360 + 540) % 360 - 180;
+  needleTo += delta;
+  if (!needleSet) { needleAt = needleTo; needleSet = true; }
+}
+
+function drawNeedle(dt) {
+  const diff = needleTo - needleAt;
+  if (REDUCE || Math.abs(diff) < 0.05) needleAt = needleTo;
+  else needleAt += diff * Math.min(1, dt / 110);
+  el.needle.setAttribute("transform", "rotate(" + needleAt.toFixed(2) + ")");
+}
+drawNeedle(0);
+if (REDUCE) document.getElementById("sweepSpin")?.remove();
+
+function fmtAge(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + "s ago";
+  const m = Math.floor(s / 60);
+  return m < 60 ? m + "m ago" : Math.floor(m / 60) + "h ago";
+}
+
+function render() {
+  const t = now(), limit = staleMs();
+  const list = [...state.targets.values()].sort((a, b) => b.t - a.t);
+
+  if (state.selected && !state.targets.has(state.selected)) state.selected = null;
+  const sel = state.selected ? state.targets.get(state.selected) : null;
+
+  // scope
+  const lost = !!(sel && sel.lost);
+  el.unit.classList.toggle("lost", lost);
+
+  if (sel) {
+    const age = t - sel.t, stale = age > limit;
+    setNeedle(sel.deg);
+    el.needle.classList.remove("none");
+    el.needle.classList.toggle("stale", stale && !lost);
+    el.rdName.textContent = sel.name;
+    el.rdName.classList.remove("empty");
+    if (lost) {
+      el.rdBearing.textContent = "LOST TARGET";
+      el.rdAge.textContent = "last seen " + SHORT[sel.deg].toLowerCase().replace("-", " / ")
+        + " · " + fmtAge(t - sel.t);
+      el.rdAge.classList.add("stale");
+    } else {
+      el.rdBearing.textContent = SHORT[sel.deg];
+      el.rdAge.textContent = stale ? "last seen " + fmtAge(age) : fmtAge(age);
+      el.rdAge.classList.toggle("stale", stale);
+    }
+  } else {
+    el.needle.classList.add("none");
+    el.needle.classList.remove("stale");
+    el.rdName.textContent = "No contact";
+    el.rdName.classList.add("empty");
+    el.rdBearing.textContent = "—";
+    el.rdAge.textContent = state.mode === "idle" ? "waiting for a bearing" : "no bearings in this log yet";
+    el.rdAge.classList.remove("stale");
+  }
+
+  // contact list
+  el.noContacts.style.display = list.length ? "none" : "block";
+  el.contacts.innerHTML = list.map(x => {
+    const stale = t - x.t > limit;
+    return `<li data-name="${esc(x.name)}" class="${x === sel ? "sel" : ""}">
+      <span class="cname">${esc(x.name)}</span>
+      <span class="cbear" ${x.lost ? 'style="color:var(--hot)"' : ""}>${x.lost ? "LOST" : SHORT[x.deg]}</span>
+      <span class="cage ${stale ? "stale" : ""}">${fmtAge(t - x.t)}</span>
+    </li>`;
+  }).join("");
+
+  if (state.mode === "file" && state.events.length) {
+    const a = state.events[0].t, b = state.events[state.events.length - 1].t;
+    el.scrub.value = b > a ? Math.round((state.clock - a) / (b - a) * 1000) : 1000;
+    el.clock.textContent = new Date(state.clock).toLocaleTimeString()
+      + `  ·  ${state.cursor}/${state.events.length}`;
+  }
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+function setStatus(text, kind) {
+  el.status.textContent = text;
+  el.dot.className = "dot" + (kind ? " " + kind : "");
+}
+
+/* ============================ live tail ============================ */
+
+async function startLive() {
+  if (!window.showOpenFilePicker) {
+    alert("Live following needs the File System Access API — use Chrome or Edge. You can still open a log file to replay it.");
+    return;
+  }
+  let handle;
+  try {
+    [handle] = await window.showOpenFilePicker({
+      types: [{ description: "EverQuest log", accept: { "text/plain": [".txt", ".log"] } }]
+    });
+  } catch { return; }
+  return followHandle(handle);
+}
+
+async function followHandle(handle) {
+  stopSources();
+  state.mode = "live";
+  state.handle = handle;
+  state.carry = "";
+  state.liveEvents = [];
+  state.targets.clear();
+  state.selected = null;
+  el.replay.classList.remove("on");
+  $("#btnStop").disabled = false;
+
+  const f = await handle.getFile();
+  state.sourceName = f.name;
+  // Seed with the most recent session only, then follow whatever gets written next.
+  const seeded = splitSessions(parseAll(await readTail(f)), gapMs())
+    .filter(s => s.events.some(isBearing)).pop();
+  if (seeded) for (const ev of seeded.events) record(ev);
+  state.sessions = [];
+  state.offset = f.size;
+  renderSessions();
+
+  try { await dbPut("kv", { k: "lastHandle", handle, name: f.name, at: Date.now() }); } catch {}
+  setStatus("Following " + f.name, "on");
+  state.poll = setInterval(tick, 700);
+  render();
+}
+
+async function tick() {
+  try {
+    const f = await state.handle.getFile();
+    if (f.size < state.offset) { state.offset = 0; state.carry = ""; }  // log rotated
+    if (f.size === state.offset) return;
+    const chunk = await f.slice(state.offset).text();
+    state.offset = f.size;
+    ingest(chunk, Date.now());
+    renderSessions();
+    render();
+  } catch (err) {
+    setStatus("Lost access to the log — reopen it", "");
+    stopSources();
+  }
+}
+
+function ingest(text, fallbackTime) {
+  const lines = (state.carry + text).split("\n");
+  state.carry = lines.pop() ?? "";
+  for (const line of lines) {
+    const ev = parseLine(line, fallbackTime);
+    if (ev) record(ev);
+  }
+}
+
+/* ============================ file replay ============================ */
+
+const TAIL_BYTES = 8 * 1024 * 1024;   // enough for the latest session without chewing a 2GB log
+
+async function readTail(file) {
+  if (file.size <= TAIL_BYTES) return file.text();
+  const text = await file.slice(file.size - TAIL_BYTES).text();
+  return text.slice(text.indexOf("\n") + 1);   // drop the partial first line
+}
+
+async function loadFile(file) {
+  stopSources();
+  setStatus("Reading " + file.name + "…", "file");
+  const events = parseAll(await readTail(file));
+  state.sourceName = file.name;
+  state.sessions = splitSessions(events, gapMs()).filter(s => s.events.some(isBearing));
+  useSession(state.sessions.length - 1);
+}
+
+// Load one session onto the scope, parked at its final state.
+function useSession(idx) {
+  const s = state.sessions[idx];
+  state.mode = "file";
+  state.sessionIdx = idx;
+  state.events = s ? s.events : [];
+  state.cursor = 0;
+  state.targets.clear();
+  state.selected = null;
+  state.clock = s ? s.start : Date.now();
+  $("#btnStop").disabled = false;
+
+  if (!s) {
+    setStatus("No bearings found in " + state.sourceName, "file");
+    el.replay.classList.remove("on");
+  } else {
+    const bearings = s.events.filter(isBearing);
+    const contacts = new Set(bearings.map(e => e.name)).size;
+    setStatus(`${bearings.length} bearings · ${contacts} contact${contacts === 1 ? "" : "s"}`, "file");
+    el.replay.classList.add("on");
+    advanceTo(s.end);   // show where everything ended up; scrub back to replay
+  }
+  renderSessions();
+  render();
+}
+
+function sessionLabel(s, i, total) {
+  const d = new Date(s.start);
+  const when = d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+             + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const mins = Math.max(1, Math.round((s.end - s.start) / 60000));
+  return `${i === total - 1 ? "Latest · " : ""}${when} · ${mins}m · ${s.events.filter(isBearing).length} bearings`;
+}
+
+function renderSessions() {
+  const bar = $("#sessBar"), sel = $("#sessSel"), n = state.sessions.length;
+  if (!n) {
+    const live = state.liveEvents.length;
+    bar.style.display = live ? "flex" : "none";
+    if (live) {
+      sel.innerHTML = `<option>${state.mode === "live" ? "Live" : "Last live session"} — ${live} bearings</option>`;
+      sel.disabled = true;
+    }
+    return;
+  }
+  bar.style.display = "flex";
+  sel.innerHTML = state.sessions
+    .map((s, i) => `<option value="${i}">${esc(sessionLabel(s, i, n))}</option>`)
+    .reverse().join("");
+  sel.value = String(state.sessionIdx);
+  sel.disabled = n === 1;
+}
+
+$("#sessSel").onchange = e => useSession(+e.target.value);
+$("#gapMin").onchange = () => {
+  if (state.mode !== "file" || !state.sessions.length) return;
+  const all = state.sessions.flatMap(s => s.events);
+  state.sessions = splitSessions(all, gapMs()).filter(s => s.events.some(isBearing));
+  useSession(state.sessions.length - 1);
+};
+
+function rebuildTo(t) {
+  state.targets.clear();
+  state.cursor = 0;
+  state.selected = null;
+  advanceTo(t);
+}
+
+function advanceTo(t) {
+  state.clock = t;
+  while (state.cursor < state.events.length && state.events[state.cursor].t <= t) {
+    record(state.events[state.cursor++]);
+  }
+}
+
+let lastFrame = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = lastFrame ? ts - lastFrame : 0;
+  lastFrame = ts;
+  drawNeedle(dt);
+
+  if (state.mode === "file" && state.playing) {
+    const speed = +$("#speed").value;
+    let t = state.clock + dt * speed;
+    const next = state.events[state.cursor];
+    if (next && $("#skipGaps").checked && next.t - t > 2000) t = next.t;
+    const end = state.events[state.events.length - 1].t + 3000;
+    if (t >= end) { t = end; setPlaying(false); }
+    advanceTo(t);
+  }
+  if (ts - (loop.painted || 0) > 120) { loop.painted = ts; render(); }
+}
+requestAnimationFrame(loop);
+
+function setPlaying(on) {
+  state.playing = on;
+  $("#btnPlay").textContent = on ? "Pause" : "Play";
+  if (on && state.cursor >= state.events.length) rebuildTo(state.events[0].t);
+}
+
+$("#btnPlay").onclick = () => setPlaying(!state.playing);
+$("#scrub").oninput = () => {
+  if (state.mode !== "file" || !state.events.length) return;
+  setPlaying(false);
+  const a = state.events[0].t, b = state.events[state.events.length - 1].t;
+  const t = a + (b - a) * (+$("#scrub").value / 1000);
+  if (t < state.clock) rebuildTo(t); else advanceTo(t);
+  render();
+};
+$("#btnNext").onclick = () => {
+  const next = state.events[state.cursor];
+  if (next) { advanceTo(next.t); render(); }
+};
+$("#btnPrev").onclick = () => {
+  const i = Math.max(0, state.cursor - 2);
+  if (state.events[i]) { rebuildTo(state.events[i].t); render(); }
+};
+
+/* ============================ sources ============================ */
+
+function stopSources() {
+  if (state.poll) clearInterval(state.poll);
+  state.poll = null;
+  state.playing = false;
+  $("#btnPlay").textContent = "Play";
+}
+
+$("#btnLive").onclick = startLive;
+$("#btnPick").onclick = () => {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = ".txt,.log,text/plain";
+  inp.onchange = () => inp.files[0] && loadFile(inp.files[0]);
+  inp.click();
+};
+$("#btnStop").onclick = () => {
+  stopSources();
+  state.mode = "idle";
+  el.replay.classList.remove("on");
+  $("#btnStop").disabled = true;
+  setStatus("Stopped", "");
+};
+$("#btnClear").onclick = () => {
+  state.targets.clear(); state.selected = null; render();
+};
+
+const drop = $("#drop");
+["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => {
+  e.preventDefault(); drop.classList.add("over");
+}));
+["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => {
+  e.preventDefault(); drop.classList.remove("over");
+}));
+drop.addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+
+/* ============================ saved logs ============================ */
+
+// Saved sessions keep only the bearing lines, so they stay tiny.
+$("#btnSave").onclick = async () => {
+  const ev = state.liveEvents;
+  const s = state.sessions[state.sessionIdx]
+    || (ev.length ? { start: ev[0].t, end: ev[ev.length - 1].t, events: ev } : null);
+  if (!s || !s.events.length) return;
+  const suggested = (state.sourceName.replace(/^eqlog_|\.txt$/gi, "") || "Session")
+    + " — " + new Date(s.start).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const name = prompt("Name this log:", suggested);
+  if (!name) return;
+  try {
+    await dbPut("logs", {
+      id: "log_" + Date.now(),
+      name: name.trim(),
+      savedAt: Date.now(),
+      source: state.sourceName,
+      start: s.start, end: s.end,
+      events: s.events.map(e => e.lost ? { t: e.t, x: 1 } : { t: e.t, n: e.name, d: e.deg })
+    });
+    refreshSaved();
+  } catch { alert("Couldn't save — the browser blocked local storage for this page."); }
+};
+
+async function refreshSaved() {
+  let rows = [];
+  try { rows = (await dbAll("logs")) || []; } catch {}
+  rows.sort((a, b) => b.savedAt - a.savedAt);
+  $("#noSaved").style.display = rows.length ? "none" : "block";
+  $("#savedList").innerHTML = rows.map(r => {
+    const bearings = r.events.filter(e => e.n);
+    const contacts = new Set(bearings.map(e => e.n)).size;
+    return `<li>
+      <span class="cname">${esc(r.name)}</span>
+      <span class="smeta">${bearings.length} bearings · ${contacts} contact${contacts === 1 ? "" : "s"}</span>
+      <button data-load="${r.id}">Load</button>
+      <button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.name)}">&times;</button>
+    </li>`;
+  }).join("");
+}
+
+$("#savedList").onclick = async e => {
+  const load = e.target.dataset.load, del = e.target.dataset.del;
+  if (load) {
+    const r = await dbGet("logs", load);
+    if (!r) return;
+    stopSources();
+    state.sourceName = r.name;
+    state.sessions = [{
+      start: r.start, end: r.end,
+      events: r.events.map(e => e.x ? { t: e.t, lost: true }
+                                     : { t: e.t, name: e.n, deg: e.d, label: LABEL_FOR[e.d] })
+    }];
+    useSession(0);
+  } else if (del) {
+    const li = e.target.closest("li");
+    if (!confirm(`Delete "${li.querySelector(".cname").textContent}"?`)) return;
+    await dbDel("logs", del);
+    refreshSaved();
+  }
+};
+
+// Offer one-click reopen of the last live log.
+(async () => {
+  try {
+    const last = await dbGet("kv", "lastHandle");
+    if (!last || !last.handle) return;
+    const btn = $("#btnReopen");
+    btn.textContent = "Resume " + last.name;
+    btn.className = "primary";
+    btn.style.display = "";
+    btn.onclick = async () => {
+      let perm = await last.handle.queryPermission({ mode: "read" });
+      if (perm !== "granted") perm = await last.handle.requestPermission({ mode: "read" });
+      if (perm !== "granted") { setStatus("Click Resume to re-allow " + last.name, ""); return; }
+      followHandle(last.handle);
+    };
+    // If the browser still holds permission, start following without being asked.
+    if (await last.handle.queryPermission({ mode: "read" }) === "granted") {
+      btn.onclick();
+    } else {
+      setStatus("Click Resume to follow " + last.name, "");
+    }
+  } catch {}
+})();
+
+refreshSaved();
+
+/* ============================ pop-out ============================ */
+
+const canPiP = "documentPictureInPicture" in window;
+
+// Browsers allow exactly ONE Document Picture-in-Picture window at a time, across every
+// tab and site. Requesting one closes whichever tool already had it. "Separate window"
+// opens an ordinary popup instead, which can coexist with any number of others.
+function popMode() { return canPiP ? $("#popMode").value : "win"; }
+
+function updatePopHint() {
+  const m = popMode();
+  $("#popHint").textContent = !canPiP
+    ? "This browser has no always-on-top mode, so the pop-out opens as an ordinary window. Chrome or Edge gives you a window that floats over EverQuest."
+    : m === "pip"
+      ? "Stays on top of EverQuest — but your browser only allows one always-on-top window at a time, so this will close Box Watch's. Switch either tool to “Separate window” to run both."
+      : "Opens an ordinary window that coexists with your other pop-outs. It won't float over the game on its own — pin it with PowerToys (Win+Ctrl+T).";
+}
+$("#popMode").disabled = !canPiP;
+$("#popMode").onchange = () => { updatePopHint(); dbPut("kv", { k: "popMode", v: popMode() }).catch(() => {}); };
+dbGet("kv", "popMode").then(r => { if (r && canPiP) $("#popMode").value = r.v; updatePopHint(); }).catch(updatePopHint);
+updatePopHint();
+
+// Browsers allow exactly ONE always-on-top (Document Picture-in-Picture) window at a
+// time, across every tab and site. The Ysu tools announce who holds it on this channel,
+// so whichever pops out second opens a separate window instead of closing the first.
+const POPOUT_TOOL = "Tracking Radar";
+let popChannel = null, iHoldPip = false, pipHolder = null;
+try { popChannel = new BroadcastChannel("ysu-popout"); } catch {}
+if (popChannel) popChannel.onmessage = ev => {
+  const m = ev.data || {};
+  if (m.tool === POPOUT_TOOL) return;
+  if (m.type === "who") { if (iHoldPip) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL }); }
+  else if (m.type === "claim") pipHolder = m.tool;
+  else if (m.type === "release" && pipHolder === m.tool) pipHolder = null;
+};
+function askSlot() {
+  pipHolder = null;
+  if (!popChannel) return Promise.resolve();
+  popChannel.postMessage({ type: "who" });
+  return new Promise(r => setTimeout(r, 200));
+}
+
+async function popOut() {
+  if (state.popWin && !state.popWin.closed) { state.popWin.focus(); return; }
+
+  let mode = popMode();
+  if (mode === "pip") {
+    await askSlot();
+    if (pipHolder) mode = "win";   // something else is floating — leave it alone
+  }
+
+  let win;
+  if (mode === "pip") {
+    win = await documentPictureInPicture.requestWindow({ width: 300, height: 340 });
+  } else {
+    win = window.open("", "ysu_tracking_radar", "popup=yes,width=320,height=380");
+    if (!win) { alert("Pop-out blocked — allow pop-ups for this site."); return; }
+    win.document.write('<!doctype html><html><head><title>Tracking Radar</title>'
+      + '<meta charset="utf-8"><style>html,body{margin:0;background:#070a0c}</style>'
+      + "</head><body></body></html>");
+    win.document.close();
+  }
+
+  state.popWin = win;
+  win.document.title = "Tracking Radar";
+  const style = win.document.createElement("style");
+  style.textContent = document.getElementById("appStyle").textContent;
+  win.document.head.appendChild(style);
+  win.document.body.className = "pip";
+  win.document.body.appendChild(win.document.adoptNode(el.unit));
+  $("#btnPop").textContent = "Radar is popped out";
+
+  if (mode === "pip") {
+    iHoldPip = true;
+    if (popChannel) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL });
+  } else if (pipHolder) {
+    $("#popHint").textContent = pipHolder + " has the always-on-top slot, so the radar opened as a separate window. Pin it with PowerToys (Win+Ctrl+T), or set Box Watch to “Separate window” to give the radar the floating slot.";
+  }
+
+  let watch = null;
+  const back = () => {
+    if (watch) { clearInterval(watch); watch = null; }
+    if (!state.popWin) return;
+    if (el.unit.ownerDocument !== document) el.host.appendChild(document.adoptNode(el.unit));
+    state.popWin = null;
+    if (iHoldPip) {
+      iHoldPip = false;
+      if (popChannel) popChannel.postMessage({ type: "release", tool: POPOUT_TOOL });
+    }
+    $("#btnPop").textContent = "Pop out radar";
+    updatePopHint();
+  };
+  // pagehide/unload are unreliable for plain popups, so poll as well.
+  watch = setInterval(() => { if (win.closed) back(); }, 500);
+  win.addEventListener("pagehide", back);
+  win.addEventListener("unload", back);
+}
+
+// Walks the scope through all eight bearings so you can confirm each one draws.
+$("#btnTest").onclick = () => {
+  stopSources();
+  state.mode = "idle";
+  state.sessions = []; state.liveEvents = [];
+  state.targets.clear();
+  renderSessions();
+  let i = 0;
+  (function step() {
+    const deg = i * 45;
+    state.targets.set("Radar test", { name: "Radar test", deg, label: LABEL_FOR[deg], t: Date.now(), count: i + 1 });
+    state.selected = "Radar test";
+    setStatus("Test bearing: " + LABEL_FOR[deg], "");
+    render();
+    if (++i < 8) setTimeout(step, 950);
+    else setTimeout(() => {
+      markLost(Date.now());
+      setStatus("Test finished — eight bearings, then lost target", "");
+      render();
+    }, 950);
+  })();
+};
+
+$("#btnPop").onclick = () => popOut().catch(() => {});
+window.addEventListener("beforeunload", () => { try { state.popWin?.close(); } catch {} });
+
+render();
+</script>
+</body>
+</html>

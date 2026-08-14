@@ -362,11 +362,17 @@
       <input type="range" id="volumeSlider" min="0" max="100" value="70" style="width:80px;">
       <span id="volumeValue" style="font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--text-dim); width:30px; display:inline-block; text-align:right;">70%</span>
     </div>
-    <button id="pipBtn" class="primary">Pop out — always on top</button>
+    <button id="pipBtn" class="primary">Pop out</button>
+    <select id="popMode" title="Pop-out style">
+      <option value="pip">Always on top</option>
+      <option value="win">Separate window</option>
+    </select>
     <button id="pauseBtn">Pause watching</button>
     <button id="resetAllBtn">Acknowledge all</button>
     <button id="clearAllBtn" class="danger">Clear all files</button>
   </div>
+
+  <div id="popNote" style="display:none;margin:0 0 10px;padding:8px 12px;border:1px solid #4a5570;border-radius:6px;background:#222836;color:#c9d4ea;font-size:13px"></div>
 
   <div id="gridHome">
     <div class="grid-shell" id="gridShell">
@@ -935,57 +941,103 @@ function updateStats() {
   if (pipStatsEl) pipStatsEl.textContent = `${following}/${boxes.length} following · ${broken} dropped`;
 }
 
-async function openPiP() {
-  if (!pipApiSupported()) {
-    alert('Always-on-top pop out needs Chrome or Edge 116+.');
-    return;
-  }
-  if (pipWindow) return;
+// Browsers allow exactly ONE always-on-top (Document Picture-in-Picture) window at a
+// time, across every tab and site. This channel lets the Ysu tools tell each other who
+// is holding it, so a second pop-out opens as a separate window instead of stealing it.
+const POPOUT_TOOL = 'Box Watch';
+let popChannel = null, iHoldPip = false, pipHolder = null;
+try { popChannel = new BroadcastChannel('ysu-popout'); } catch (e) {}
+if (popChannel) popChannel.onmessage = ev => {
+  const m = ev.data || {};
+  if (m.tool === POPOUT_TOOL) return;
+  if (m.type === 'who') { if (iHoldPip) popChannel.postMessage({ type: 'claim', tool: POPOUT_TOOL }); }
+  else if (m.type === 'claim') pipHolder = m.tool;
+  else if (m.type === 'release' && pipHolder === m.tool) pipHolder = null;
+};
+function askSlot() {
+  pipHolder = null;
+  if (!popChannel) return Promise.resolve();
+  popChannel.postMessage({ type: 'who' });
+  return new Promise(r => setTimeout(r, 200));
+}
 
-  pipWindow = await documentPictureInPicture.requestWindow({
-    width: Math.max(220, cols * 64),
-    height: Math.max(160, rows * 60 + 30)
-  });
-
+function copyStylesTo(win) {
   [...document.styleSheets].forEach(styleSheet => {
     try {
       const cssText = [...styleSheet.cssRules].map(r => r.cssText).join('\n');
       const style = document.createElement('style');
       style.textContent = cssText;
-      pipWindow.document.head.appendChild(style);
+      win.document.head.appendChild(style);
     } catch (e) {
       if (styleSheet.href) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = styleSheet.href;
-        pipWindow.document.head.appendChild(link);
+        win.document.head.appendChild(link);
       }
     }
   });
+}
 
-  pipWindow.document.body.classList.add('pip-body');
-  pipWindow.document.body.appendChild(gridShellEl);
+async function openPiP() {
+  if (pipWindow) return;
+  const w = Math.max(220, cols * 64), hgt = Math.max(160, rows * 60 + 30);
+
+  let mode = document.getElementById('popMode').value;
+  if (mode === 'pip' && !pipApiSupported()) mode = 'win';
+  if (mode === 'pip') {
+    await askSlot();
+    if (pipHolder) mode = 'win';   // another tool already floats — don't close it
+  }
+
+  let win;
+  if (mode === 'pip') {
+    win = await documentPictureInPicture.requestWindow({ width: w, height: hgt });
+  } else {
+    win = window.open('', 'ysu_box_watch', `popup=yes,width=${w + 20},height=${hgt + 40}`);
+    if (!win) { alert('Pop-out blocked — allow pop-ups for this site.'); return; }
+    win.document.write('<!doctype html><html><head><meta charset="utf-8">'
+      + '<title>Box Watch</title><style>html,body{margin:0;background:#14161c}</style>'
+      + '</head><body></body></html>');
+    win.document.close();
+  }
+
+  pipWindow = win;
+  win.document.title = 'Box Watch';
+  copyStylesTo(win);
+  win.document.body.classList.add('pip-body');
+  win.document.body.appendChild(win.document.adoptNode(gridShellEl));
 
   pipBtn.classList.add('active');
   pipBtn.textContent = 'Popped out';
+  if (mode === 'pip') { iHoldPip = true; if (popChannel) popChannel.postMessage({ type: 'claim', tool: POPOUT_TOOL }); }
+  else if (pipHolder) { setPopNote(pipHolder + ' has the always-on-top slot, so this opened as a separate window.'); }
 
-  pipWindow.addEventListener('pagehide', () => {
-    gridHomeEl.appendChild(gridShellEl);
+  let watch = null;
+  const back = () => {
+    if (watch) { clearInterval(watch); watch = null; }
+    if (!pipWindow) return;
+    if (gridShellEl.ownerDocument !== document) gridHomeEl.appendChild(document.adoptNode(gridShellEl));
     pipWindow = null;
+    if (iHoldPip) { iHoldPip = false; if (popChannel) popChannel.postMessage({ type: 'release', tool: POPOUT_TOOL }); }
     pipBtn.classList.remove('active');
-    pipBtn.textContent = 'Pop out — always on top';
+    pipBtn.textContent = 'Pop out';
     renderGrid();
-  });
+  };
+  watch = setInterval(() => { if (win.closed) back(); }, 500);
+  win.addEventListener('pagehide', back);
+  win.addEventListener('unload', back);
 
   renderGrid();
 }
 
+function setPopNote(msg) {
+  const n = document.getElementById('popNote');
+  if (n) { n.textContent = msg; n.style.display = 'block'; setTimeout(() => { n.style.display = 'none'; }, 9000); }
+}
+
 pipBtn.addEventListener('click', () => {
-  if (pipWindow) {
-    pipWindow.close();
-  } else {
-    openPiP();
-  }
+  if (pipWindow) { pipWindow.close(); } else { openPiP(); }
 });
 
 pipReturnBtn.addEventListener('click', () => {
@@ -995,6 +1047,7 @@ pipReturnBtn.addEventListener('click', () => {
 if (!fsApiSupported()) {
   document.getElementById('unsupportedNotice').style.display = 'block';
 }
+window.addEventListener('beforeunload', () => { try { if (pipWindow) pipWindow.close(); } catch (e) {} });
 initBoxes();
 renderGrid();
 startPolling();
