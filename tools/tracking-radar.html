@@ -244,10 +244,6 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
 
     <div class="row" style="margin-top:12px">
       <button id="btnPop" class="primary">Pop out radar</button>
-      <select id="popMode" aria-label="Pop-out style">
-        <option value="pip">Always on top</option>
-        <option value="win">Separate window</option>
-      </select>
       <button id="btnTest">Test all 8</button>
       <span class="status"><span class="dot" id="dot"></span><span id="statusTxt">No log loaded</span></span>
     </div>
@@ -260,16 +256,10 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
       <h2>Log source</h2>
       <div class="row">
         <button id="btnLive" class="primary">Follow live log</button>
-        <button id="btnPick">Open a log file</button>
         <button id="btnReopen" style="display:none"></button>
         <button id="btnStop" disabled>Stop</button>
       </div>
-      <div class="drop" id="drop">or drop an <span class="mono">eqlog_Name_server.txt</span> here</div>
 
-      <div class="row" id="sessBar" style="display:none;margin-top:12px">
-        <select id="sessSel" aria-label="Tracking session" style="flex:1;min-width:0"></select>
-        <button id="btnSave">Save session</button>
-      </div>
       <div class="row">
         <label class="chk">Start a new session after
           <input type="number" id="gapMin" min="1" max="240" value="5"> min without a bearing
@@ -277,9 +267,9 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
       </div>
 
       <p class="hint" id="srcHint">
-        Only the most recent run of tracking messages is loaded — old sessions further up the log are listed
-        in the dropdown if you want them. <b>Follow live log</b> keeps reading the file as EverQuest writes to it
-        (Chrome or Edge).
+        Pick your <span class="mono">eqlog_Name_server.txt</span> once and the radar follows it as EverQuest
+        writes to it, locked on your current tracking target. It reopens the same log next time. Every tracking
+        session is filed below automatically. Chrome or Edge.
       </p>
 
       <div class="replay" id="replay">
@@ -315,9 +305,9 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
     </div>
 
     <div class="panel" style="margin-top:18px">
-      <h2>Saved logs</h2>
+      <h2>Past tracking logs</h2>
       <ul class="contacts saved" id="savedList"></ul>
-      <div class="empty-note" id="noSaved">Nothing saved yet. Load a log, then choose <b>Save session</b>.</div>
+      <div class="empty-note" id="noSaved">No past sessions yet — they're filed here automatically as you track.</div>
     </div>
 
     <div class="panel" style="margin-top:18px">
@@ -614,13 +604,15 @@ async function followHandle(handle) {
 
   const f = await handle.getFile();
   state.sourceName = f.name;
-  // Seed with the most recent session only, then follow whatever gets written next.
-  const seeded = splitSessions(parseAll(await readTail(f)), gapMs())
-    .filter(s => s.events.some(isBearing)).pop();
+  // Newest session seeds the scope; everything older in the tail goes into the archive
+  // so past tracks are one click away without ever opening a file by hand.
+  const found = splitSessions(parseAll(await readTail(f)), gapMs()).filter(s => s.events.some(isBearing));
+  const seeded = found.pop();
+  for (const s of found) await archiveSession(s, f.name);
   if (seeded) for (const ev of seeded.events) record(ev);
-  state.sessions = [];
   state.offset = f.size;
-  renderSessions();
+  archiveLive(true);
+  refreshSaved();
 
   try { await dbPut("kv", { k: "lastHandle", handle, name: f.name, at: Date.now() }); } catch {}
   setStatus("Following " + f.name, "on");
@@ -636,7 +628,7 @@ async function tick() {
     const chunk = await f.slice(state.offset).text();
     state.offset = f.size;
     ingest(chunk, Date.now());
-    renderSessions();
+    archiveLive();
     render();
   } catch (err) {
     setStatus("Lost access to the log — reopen it", "");
@@ -655,21 +647,12 @@ function ingest(text, fallbackTime) {
 
 /* ============================ file replay ============================ */
 
-const TAIL_BYTES = 8 * 1024 * 1024;   // enough for the latest session without chewing a 2GB log
+const TAIL_BYTES = 8 * 1024 * 1024;   // enough for recent sessions without chewing a 2GB log
 
 async function readTail(file) {
   if (file.size <= TAIL_BYTES) return file.text();
   const text = await file.slice(file.size - TAIL_BYTES).text();
   return text.slice(text.indexOf("\n") + 1);   // drop the partial first line
-}
-
-async function loadFile(file) {
-  stopSources();
-  setStatus("Reading " + file.name + "…", "file");
-  const events = parseAll(await readTail(file));
-  state.sourceName = file.name;
-  state.sessions = splitSessions(events, gapMs()).filter(s => s.events.some(isBearing));
-  useSession(state.sessions.length - 1);
 }
 
 // Load one session onto the scope, parked at its final state.
@@ -694,102 +677,8 @@ function useSession(idx) {
     el.replay.classList.add("on");
     advanceTo(s.end);   // show where everything ended up; scrub back to replay
   }
-  renderSessions();
   render();
 }
-
-function sessionLabel(s, i, total) {
-  const d = new Date(s.start);
-  const when = d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-             + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  const mins = Math.max(1, Math.round((s.end - s.start) / 60000));
-  return `${i === total - 1 ? "Latest · " : ""}${when} · ${mins}m · ${s.events.filter(isBearing).length} bearings`;
-}
-
-function renderSessions() {
-  const bar = $("#sessBar"), sel = $("#sessSel"), n = state.sessions.length;
-  if (!n) {
-    const live = state.liveEvents.length;
-    bar.style.display = live ? "flex" : "none";
-    if (live) {
-      sel.innerHTML = `<option>${state.mode === "live" ? "Live" : "Last live session"} — ${live} bearings</option>`;
-      sel.disabled = true;
-    }
-    return;
-  }
-  bar.style.display = "flex";
-  sel.innerHTML = state.sessions
-    .map((s, i) => `<option value="${i}">${esc(sessionLabel(s, i, n))}</option>`)
-    .reverse().join("");
-  sel.value = String(state.sessionIdx);
-  sel.disabled = n === 1;
-}
-
-$("#sessSel").onchange = e => useSession(+e.target.value);
-$("#gapMin").onchange = () => {
-  if (state.mode !== "file" || !state.sessions.length) return;
-  const all = state.sessions.flatMap(s => s.events);
-  state.sessions = splitSessions(all, gapMs()).filter(s => s.events.some(isBearing));
-  useSession(state.sessions.length - 1);
-};
-
-function rebuildTo(t) {
-  state.targets.clear();
-  state.cursor = 0;
-  state.selected = null;
-  advanceTo(t);
-}
-
-function advanceTo(t) {
-  state.clock = t;
-  while (state.cursor < state.events.length && state.events[state.cursor].t <= t) {
-    record(state.events[state.cursor++]);
-  }
-}
-
-let lastFrame = 0;
-function loop(ts) {
-  requestAnimationFrame(loop);
-  const dt = lastFrame ? ts - lastFrame : 0;
-  lastFrame = ts;
-  drawNeedle(dt);
-
-  if (state.mode === "file" && state.playing) {
-    const speed = +$("#speed").value;
-    let t = state.clock + dt * speed;
-    const next = state.events[state.cursor];
-    if (next && $("#skipGaps").checked && next.t - t > 2000) t = next.t;
-    const end = state.events[state.events.length - 1].t + 3000;
-    if (t >= end) { t = end; setPlaying(false); }
-    advanceTo(t);
-  }
-  if (ts - (loop.painted || 0) > 120) { loop.painted = ts; render(); }
-}
-requestAnimationFrame(loop);
-
-function setPlaying(on) {
-  state.playing = on;
-  $("#btnPlay").textContent = on ? "Pause" : "Play";
-  if (on && state.cursor >= state.events.length) rebuildTo(state.events[0].t);
-}
-
-$("#btnPlay").onclick = () => setPlaying(!state.playing);
-$("#scrub").oninput = () => {
-  if (state.mode !== "file" || !state.events.length) return;
-  setPlaying(false);
-  const a = state.events[0].t, b = state.events[state.events.length - 1].t;
-  const t = a + (b - a) * (+$("#scrub").value / 1000);
-  if (t < state.clock) rebuildTo(t); else advanceTo(t);
-  render();
-};
-$("#btnNext").onclick = () => {
-  const next = state.events[state.cursor];
-  if (next) { advanceTo(next.t); render(); }
-};
-$("#btnPrev").onclick = () => {
-  const i = Math.max(0, state.cursor - 2);
-  if (state.events[i]) { rebuildTo(state.events[i].t); render(); }
-};
 
 /* ============================ sources ============================ */
 
@@ -801,13 +690,8 @@ function stopSources() {
 }
 
 $("#btnLive").onclick = startLive;
-$("#btnPick").onclick = () => {
-  const inp = document.createElement("input");
-  inp.type = "file"; inp.accept = ".txt,.log,text/plain";
-  inp.onchange = () => inp.files[0] && loadFile(inp.files[0]);
-  inp.click();
-};
 $("#btnStop").onclick = () => {
+  archiveLive(true);
   stopSources();
   state.mode = "idle";
   el.replay.classList.remove("on");
@@ -818,43 +702,52 @@ $("#btnClear").onclick = () => {
   state.targets.clear(); state.selected = null; render();
 };
 
-const drop = $("#drop");
-["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => {
-  e.preventDefault(); drop.classList.add("over");
-}));
-["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => {
-  e.preventDefault(); drop.classList.remove("over");
-}));
-drop.addEventListener("drop", e => {
-  const f = e.dataTransfer.files[0];
-  if (f) loadFile(f);
-});
-
 /* ============================ saved logs ============================ */
 
-// Saved sessions keep only the bearing lines, so they stay tiny.
-$("#btnSave").onclick = async () => {
-  const ev = state.liveEvents;
-  const s = state.sessions[state.sessionIdx]
-    || (ev.length ? { start: ev[0].t, end: ev[ev.length - 1].t, events: ev } : null);
-  if (!s || !s.events.length) return;
-  const suggested = (state.sourceName.replace(/^eqlog_|\.txt$/gi, "") || "Session")
-    + " — " + new Date(s.start).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-  const name = prompt("Name this log:", suggested);
-  if (!name) return;
+// Sessions are filed automatically — nothing to click, nothing to remember.
+// Only the bearing lines are stored, so a long track is a few KB.
+const ARCHIVE_MAX = 40;
+let lastArchive = 0;
+
+const packEvents = evs => evs.map(e => e.lost ? { t: e.t, x: 1 } : { t: e.t, n: e.name, d: e.deg });
+
+async function archiveSession(s, source) {
+  if (!s || !s.events.some(isBearing)) return;
+  const when = new Date(s.start).toLocaleString(undefined,
+    { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const who = (source || "Log").replace(/^eqlog_/i, "").replace(/\.txt$/i, "").split("_")[0];
   try {
     await dbPut("logs", {
-      id: "log_" + Date.now(),
-      name: name.trim(),
-      savedAt: Date.now(),
-      source: state.sourceName,
-      start: s.start, end: s.end,
-      events: s.events.map(e => e.lost ? { t: e.t, x: 1 } : { t: e.t, n: e.name, d: e.deg })
+      id: "log_" + s.start,          // keyed by session start, so it updates in place
+      name: who + " — " + when,
+      savedAt: Date.now(), source, start: s.start, end: s.end,
+      events: packEvents(s.events)
     });
-    refreshSaved();
-  } catch { alert("Couldn't save — the browser blocked local storage for this page."); }
-};
+  } catch {}
+}
 
+// Re-splits what we've seen live, so a long pause files as its own session.
+function archiveLive(force) {
+  if (state.mode !== "live" || !state.liveEvents.length) return;
+  if (!force && Date.now() - lastArchive < 20000) return;
+  lastArchive = Date.now();
+  (async () => {
+    for (const s of splitSessions(state.liveEvents, gapMs())) await archiveSession(s, state.sourceName);
+    await pruneArchive();
+    refreshSaved();
+  })();
+}
+
+async function pruneArchive() {
+  try {
+    const rows = (await dbAll("logs")) || [];
+    if (rows.length <= ARCHIVE_MAX) return;
+    rows.sort((a, b) => (b.start || 0) - (a.start || 0));
+    for (const r of rows.slice(ARCHIVE_MAX)) await dbDel("logs", r.id);
+  } catch {}
+}
+
+// Saved sessions keep only the bearing lines, so they stay tiny.
 async function refreshSaved() {
   let rows = [];
   try { rows = (await dbAll("logs")) || []; } catch {}
@@ -923,55 +816,30 @@ refreshSaved();
 
 const canPiP = "documentPictureInPicture" in window;
 
-// Browsers allow exactly ONE Document Picture-in-Picture window at a time, across every
-// tab and site. Requesting one closes whichever tool already had it. "Separate window"
-// opens an ordinary popup instead, which can coexist with any number of others.
-function popMode() { return canPiP ? $("#popMode").value : "win"; }
-
-function updatePopHint() {
-  const m = popMode();
-  $("#popHint").textContent = !canPiP
-    ? "This browser has no always-on-top mode, so the pop-out opens as an ordinary window. Chrome or Edge gives you a window that floats over EverQuest."
-    : m === "pip"
-      ? "Stays on top of EverQuest — but your browser only allows one always-on-top window at a time, so this will close Box Watch's. Switch either tool to “Separate window” to run both."
-      : "Opens an ordinary window that coexists with your other pop-outs. It won't float over the game on its own — pin it with PowerToys (Win+Ctrl+T).";
-}
-$("#popMode").disabled = !canPiP;
-$("#popMode").onchange = () => { updatePopHint(); dbPut("kv", { k: "popMode", v: popMode() }).catch(() => {}); };
-dbGet("kv", "popMode").then(r => { if (r && canPiP) $("#popMode").value = r.v; updatePopHint(); }).catch(updatePopHint);
-updatePopHint();
-
 // Browsers allow exactly ONE always-on-top (Document Picture-in-Picture) window at a
-// time, across every tab and site. The Ysu tools announce who holds it on this channel,
-// so whichever pops out second opens a separate window instead of closing the first.
+// time, across every tab and site. The radar claims it and announces that on this
+// channel; Box Watch listens and steps aside to a separate window instead of fighting.
 const POPOUT_TOOL = "Tracking Radar";
-let popChannel = null, iHoldPip = false, pipHolder = null;
+let popChannel = null, iHoldPip = false;
 try { popChannel = new BroadcastChannel("ysu-popout"); } catch {}
 if (popChannel) popChannel.onmessage = ev => {
   const m = ev.data || {};
   if (m.tool === POPOUT_TOOL) return;
-  if (m.type === "who") { if (iHoldPip) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL }); }
-  else if (m.type === "claim") pipHolder = m.tool;
-  else if (m.type === "release" && pipHolder === m.tool) pipHolder = null;
+  if (m.type === "who" && iHoldPip) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL });
 };
-function askSlot() {
-  pipHolder = null;
-  if (!popChannel) return Promise.resolve();
-  popChannel.postMessage({ type: "who" });
-  return new Promise(r => setTimeout(r, 200));
+
+function updatePopHint() {
+  $("#popHint").textContent = canPiP
+    ? "The pop-out floats over EverQuest. Your browser allows one always-on-top window at a time and the radar takes it, so set Box Watch to “Separate window” if you want both out at once."
+    : "This browser has no always-on-top mode, so the pop-out opens as an ordinary window. Chrome or Edge gives you one that floats over the game.";
 }
+updatePopHint();
 
 async function popOut() {
   if (state.popWin && !state.popWin.closed) { state.popWin.focus(); return; }
 
-  let mode = popMode();
-  if (mode === "pip") {
-    await askSlot();
-    if (pipHolder) mode = "win";   // something else is floating — leave it alone
-  }
-
   let win;
-  if (mode === "pip") {
+  if (canPiP) {
     win = await documentPictureInPicture.requestWindow({ width: 300, height: 340 });
   } else {
     win = window.open("", "ysu_tracking_radar", "popup=yes,width=320,height=380");
@@ -991,11 +859,9 @@ async function popOut() {
   win.document.body.appendChild(win.document.adoptNode(el.unit));
   $("#btnPop").textContent = "Radar is popped out";
 
-  if (mode === "pip") {
+  if (canPiP) {
     iHoldPip = true;
     if (popChannel) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL });
-  } else if (pipHolder) {
-    $("#popHint").textContent = pipHolder + " has the always-on-top slot, so the radar opened as a separate window. Pin it with PowerToys (Win+Ctrl+T), or set Box Watch to “Separate window” to give the radar the floating slot.";
   }
 
   let watch = null;
@@ -1009,9 +875,7 @@ async function popOut() {
       if (popChannel) popChannel.postMessage({ type: "release", tool: POPOUT_TOOL });
     }
     $("#btnPop").textContent = "Pop out radar";
-    updatePopHint();
   };
-  // pagehide/unload are unreliable for plain popups, so poll as well.
   watch = setInterval(() => { if (win.closed) back(); }, 500);
   win.addEventListener("pagehide", back);
   win.addEventListener("unload", back);
@@ -1023,7 +887,6 @@ $("#btnTest").onclick = () => {
   state.mode = "idle";
   state.sessions = []; state.liveEvents = [];
   state.targets.clear();
-  renderSessions();
   let i = 0;
   (function step() {
     const deg = i * 45;
@@ -1041,7 +904,10 @@ $("#btnTest").onclick = () => {
 };
 
 $("#btnPop").onclick = () => popOut().catch(() => {});
-window.addEventListener("beforeunload", () => { try { state.popWin?.close(); } catch {} });
+window.addEventListener("beforeunload", () => {
+  archiveLive(true);
+  try { state.popWin?.close(); } catch {}
+});
 
 render();
 </script>
