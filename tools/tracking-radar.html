@@ -101,6 +101,20 @@ main{
 .ghost{fill:#2f7d63}
 .ghost-label{fill:#4d7a6d;font:500 8px ui-monospace,monospace;text-anchor:middle}
 
+.box-strip{width:100%;border-top:1px solid #14201c;padding-top:8px}
+.box-strip .bs-head{
+  display:flex;justify-content:space-between;font:600 9px ui-monospace,monospace;
+  letter-spacing:.14em;text-transform:uppercase;color:#5c7a72;margin-bottom:5px
+}
+.box-strip .bs-grid{display:grid;gap:3px}
+.box-strip .bs-cell{
+  aspect-ratio:1;border-radius:3px;background:#1b2a25;border:1px solid #24382f;
+  display:flex;align-items:center;justify-content:center;
+  font:600 9px ui-monospace,monospace;color:#6d8a80;min-height:14px
+}
+.box-strip .bs-cell.following{background:#12331f;border-color:#2c6b3f;color:#7fd6a0}
+.box-strip .bs-cell.broken{background:#3a1414;border-color:#8a2f2f;color:#ff9b8a}
+.box-strip .bs-cell.stalefeed{opacity:.35}
 .readout{width:100%;text-align:center;border-top:1px solid #14201c;padding-top:9px}
 .readout .name{
   font-size:17px;font-weight:600;color:#eaf5f0;white-space:nowrap;overflow:hidden;
@@ -234,6 +248,11 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
           <text class="cardinal major" x="-115" y="4">Left</text>
         </svg>
 
+        <div class="box-strip" id="boxStrip" hidden>
+          <div class="bs-head"><span>Box Watch</span><span id="bsStats"></span></div>
+          <div class="bs-grid" id="bsGrid"></div>
+        </div>
+
         <div class="readout">
           <div class="name empty" id="rdName">No contact</div>
           <div class="bearing" id="rdBearing">—</div>
@@ -246,6 +265,9 @@ body.pip .scope{max-width:none;flex:1;min-height:0}
       <button id="btnPop" class="primary">Pop out radar</button>
       <button id="btnTest">Test all 8</button>
       <span class="status"><span class="dot" id="dot"></span><span id="statusTxt">No log loaded</span></span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="chk"><input type="checkbox" id="showBoxes"> Show Box Watch grid in the pop-out</label>
     </div>
     <p class="hint" id="popHint"></p>
   </section>
@@ -616,11 +638,14 @@ async function followHandle(handle) {
 
   try { await dbPut("kv", { k: "lastHandle", handle, name: f.name, at: Date.now() }); } catch {}
   setStatus("Following " + f.name, "on");
-  state.poll = setInterval(tick, 700);
+  state.poll = setInterval(tick, 2000);   // backstop for when animation frames are paused
   render();
 }
 
+let ticking = false;
 async function tick() {
+  if (ticking || state.mode !== "live" || !state.handle) return;
+  ticking = true;
   try {
     const f = await state.handle.getFile();
     if (f.size < state.offset) { state.offset = 0; state.carry = ""; }  // log rotated
@@ -633,6 +658,8 @@ async function tick() {
   } catch (err) {
     setStatus("Lost access to the log — reopen it", "");
     stopSources();
+  } finally {
+    ticking = false;
   }
 }
 
@@ -679,6 +706,80 @@ function useSession(idx) {
   }
   render();
 }
+
+function rebuildTo(t) {
+  state.targets.clear();
+  state.cursor = 0;
+  state.selected = null;
+  advanceTo(t);
+}
+
+function advanceTo(t) {
+  state.clock = t;
+  while (state.cursor < state.events.length && state.events[state.cursor].t <= t) {
+    record(state.events[state.cursor++]);
+  }
+}
+
+/* ============================ the driving loop ============================ */
+
+// Runs on whichever window is actually visible. A hidden tab gets its animation
+// frames suspended by the browser, so once the radar is popped out the loop moves
+// to the pop-out window — otherwise the needle freezes the moment EQ takes focus.
+let loopWin = null, loopId = null, lastFrame = 0, lastPaint = 0, lastPoll = 0;
+
+function startLoop(win) {
+  if (loopWin && loopId) { try { loopWin.cancelAnimationFrame(loopId); } catch {} }
+  loopWin = win || window;
+  lastFrame = 0;
+  const step = () => {
+    loopId = loopWin.requestAnimationFrame(step);
+    const now2 = Date.now();
+    const dt = lastFrame ? now2 - lastFrame : 16;
+    lastFrame = now2;
+
+    drawNeedle(dt);
+
+    if (state.mode === "file" && state.playing) {
+      const speed = +$("#speed").value;
+      let t = state.clock + dt * speed;
+      const next = state.events[state.cursor];
+      if (next && $("#skipGaps").checked && next.t - t > 2000) t = next.t;
+      const end = state.events[state.events.length - 1].t + 3000;
+      if (t >= end) { t = end; setPlaying(false); }
+      advanceTo(t);
+    }
+
+    if (state.mode === "live" && now2 - lastPoll > 700) { lastPoll = now2; tick(); }
+    if (now2 - lastPaint > 120) { lastPaint = now2; render(); renderBoxes(); }
+  };
+  loopId = loopWin.requestAnimationFrame(step);
+}
+startLoop(window);
+
+function setPlaying(on) {
+  state.playing = on;
+  $("#btnPlay").textContent = on ? "Pause" : "Play";
+  if (on && state.cursor >= state.events.length) rebuildTo(state.events[0].t);
+}
+
+$("#btnPlay").onclick = () => setPlaying(!state.playing);
+$("#scrub").oninput = () => {
+  if (state.mode !== "file" || !state.events.length) return;
+  setPlaying(false);
+  const a = state.events[0].t, b = state.events[state.events.length - 1].t;
+  const t = a + (b - a) * (+$("#scrub").value / 1000);
+  if (t < state.clock) rebuildTo(t); else advanceTo(t);
+  render();
+};
+$("#btnNext").onclick = () => {
+  const next = state.events[state.cursor];
+  if (next) { advanceTo(next.t); render(); }
+};
+$("#btnPrev").onclick = () => {
+  const i = Math.max(0, state.cursor - 2);
+  if (state.events[i]) { rebuildTo(state.events[i].t); render(); }
+};
 
 /* ============================ sources ============================ */
 
@@ -822,11 +923,46 @@ const canPiP = "documentPictureInPicture" in window;
 const POPOUT_TOOL = "Tracking Radar";
 let popChannel = null, iHoldPip = false;
 try { popChannel = new BroadcastChannel("ysu-popout"); } catch {}
+// Box Watch publishes its grid here, so the one always-on-top window can show both.
+let boxFeed = null, boxFeedAt = 0;
 if (popChannel) popChannel.onmessage = ev => {
   const m = ev.data || {};
   if (m.tool === POPOUT_TOOL) return;
   if (m.type === "who" && iHoldPip) popChannel.postMessage({ type: "claim", tool: POPOUT_TOOL });
+  else if (m.type === "boxes") { boxFeed = m; boxFeedAt = Date.now(); }
 };
+function helloBoxes() { try { popChannel?.postMessage({ type: "hello", tool: POPOUT_TOOL }); } catch {} }
+
+function renderBoxes() {
+  const strip = $("#boxStrip");
+  const want = $("#showBoxes").checked;
+  if (!want || !boxFeed || !boxFeed.boxes.length) { strip.hidden = true; return; }
+  strip.hidden = false;
+
+  const cols = Math.max(1, boxFeed.cols || 6);
+  const grid = $("#bsGrid");
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  // Grey the whole strip if Box Watch has gone quiet — better than showing a stale grid.
+  const quiet = Date.now() - boxFeedAt > 15000;
+  const cells = boxFeed.boxes.map((b, i) =>
+    `<div class="bs-cell ${b.s}${quiet ? " stalefeed" : ""}">${i + 1}</div>`).join("");
+  if (grid.dataset.sig !== cells) { grid.dataset.sig = cells; grid.innerHTML = cells; }
+
+  const following = boxFeed.boxes.filter(b => b.s === "following").length;
+  const broken = boxFeed.boxes.filter(b => b.s === "broken").length;
+  $("#bsStats").textContent = quiet ? "tab asleep"
+    : broken ? following + " up · " + broken + " dropped" : following + " following";
+}
+
+$("#showBoxes").onchange = () => {
+  dbPut("kv", { k: "showBoxes", v: $("#showBoxes").checked }).catch(() => {});
+  if ($("#showBoxes").checked) helloBoxes();
+  renderBoxes();
+};
+dbGet("kv", "showBoxes").then(r => {
+  if (r && r.v) { $("#showBoxes").checked = true; helloBoxes(); renderBoxes(); }
+}).catch(() => {});
+helloBoxes();
 
 function updatePopHint() {
   $("#popHint").textContent = canPiP
@@ -858,6 +994,7 @@ async function popOut() {
   win.document.body.className = "pip";
   win.document.body.appendChild(win.document.adoptNode(el.unit));
   $("#btnPop").textContent = "Radar is popped out";
+  startLoop(win);
 
   if (canPiP) {
     iHoldPip = true;
@@ -870,6 +1007,7 @@ async function popOut() {
     if (!state.popWin) return;
     if (el.unit.ownerDocument !== document) el.host.appendChild(document.adoptNode(el.unit));
     state.popWin = null;
+    startLoop(window);
     if (iHoldPip) {
       iHoldPip = false;
       if (popChannel) popChannel.postMessage({ type: "release", tool: POPOUT_TOOL });

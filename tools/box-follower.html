@@ -363,6 +363,9 @@
       <span id="volumeValue" style="font-family:'JetBrains Mono', monospace; font-size:11px; color: var(--text-dim); width:30px; display:inline-block; text-align:right;">70%</span>
     </div>
     <button id="pipBtn" class="primary">Pop out</button>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);cursor:pointer" title="Chrome throttles hidden tabs to about one check per minute. A silent audio loop keeps this tab running at full speed while you play.">
+      <input type="checkbox" id="keepAwake"> Keep watching when hidden
+    </label>
     <select id="popMode" title="Pop-out style">
       <option value="pip">Always on top</option>
       <option value="win">Separate window</option>
@@ -705,7 +708,23 @@ function initBoxes() {
   boxes = next;
 }
 
+// The radar's always-on-top pop-out mirrors this grid, so publish a compact snapshot.
+let lastBeacon = 0;
+function publishBoxes(force) {
+  if (!popChannel) return;
+  const now = Date.now();
+  if (!force && now - lastBeacon < 250) return;
+  lastBeacon = now;
+  try {
+    popChannel.postMessage({
+      type: 'boxes', tool: POPOUT_TOOL, at: now, cols,
+      boxes: boxes.map(b => ({ s: b.status, f: !!b.fileName, e: b.eventTime || null }))
+    });
+  } catch (e) {}
+}
+
 function renderGrid() {
+  publishBoxes();
   gridEl.style.gridTemplateColumns = `repeat(${cols}, minmax(46px, 1fr))`;
   gridEl.style.gridTemplateRows = `repeat(${rows}, minmax(50px, 1fr))`;
   gridEl.innerHTML = '';
@@ -951,6 +970,7 @@ if (popChannel) popChannel.onmessage = ev => {
   const m = ev.data || {};
   if (m.tool === POPOUT_TOOL) return;
   if (m.type === 'who') { if (iHoldPip) popChannel.postMessage({ type: 'claim', tool: POPOUT_TOOL }); }
+  else if (m.type === 'hello') publishBoxes(true);
   else if (m.type === 'claim') pipHolder = m.tool;
   else if (m.type === 'release' && pipHolder === m.tool) pipHolder = null;
 };
@@ -1047,6 +1067,38 @@ pipReturnBtn.addEventListener('click', () => {
 if (!fsApiSupported()) {
   document.getElementById('unsupportedNotice').style.display = 'block';
 }
+// Chrome throttles timers in hidden tabs to roughly one per minute, which stalls log
+// polling once EverQuest has focus. A page that is playing audio is exempt, so an
+// inaudible loop keeps the watcher alive. Opt-in, because it holds an audio stream.
+let keepAliveEl = null;
+function setKeepAwake(on) {
+  if (on) {
+    if (!keepAliveEl) {
+      const ctx = document.createElement('audio');
+      ctx.loop = true;
+      ctx.volume = 0.001;
+      // 0.5s of silence, WAV, base64 — no network fetch, no external file.
+      ctx.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      keepAliveEl = ctx;
+    }
+    keepAliveEl.play().catch(() => {
+      const cb = document.getElementById('keepAwake');
+      if (cb) cb.checked = false;
+      alert('Click anywhere on the page first, then re-tick "Keep watching when hidden" — the browser needs a click before it will start audio.');
+    });
+  } else if (keepAliveEl) {
+    keepAliveEl.pause();
+  }
+  try { localStorage.setItem('boxwatch-keep-awake', on ? '1' : '0'); } catch (e) {}
+}
+document.getElementById('keepAwake').addEventListener('change', e => setKeepAwake(e.target.checked));
+try {
+  if (localStorage.getItem('boxwatch-keep-awake') === '1') {
+    document.getElementById('keepAwake').checked = true;
+    setKeepAwake(true);
+  }
+} catch (e) {}
+
 window.addEventListener('beforeunload', () => { try { if (pipWindow) pipWindow.close(); } catch (e) {} });
 initBoxes();
 renderGrid();
