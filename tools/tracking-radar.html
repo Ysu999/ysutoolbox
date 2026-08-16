@@ -156,7 +156,8 @@ main{
   display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);
   font-family:ui-monospace,monospace
 }
-.dot{width:8px;height:8px;border-radius:50%;background:#3a4a54}
+.dot{width:8px;height:8px;border-radius:50%;background:#3a4a54;transition:transform .16s ease-out}
+.dot.beat{transform:scale(1.8)}
 .dot.on{background:var(--phos);box-shadow:0 0 7px var(--phos)}
 .dot.file{background:var(--gold)}
 .drop{
@@ -599,6 +600,18 @@ function setStatus(text, kind) {
 
 /* ============================ live tail ============================ */
 
+// One read of the log per beat, and a repaint on every read — so the scope is never
+// more than this far behind the game. Change this number to retune the cadence.
+const POLL_MS = 1000;
+
+// Flashes the status dot on each read, so a glance tells you the radar is still pulling.
+let dotTimer = null;
+function beatDot() {
+  el.dot.classList.add("beat");
+  clearTimeout(dotTimer);
+  dotTimer = setTimeout(() => el.dot.classList.remove("beat"), 160);
+}
+
 async function startLive() {
   if (!window.showOpenFilePicker) {
     alert("Live following needs the File System Access API — use Chrome or Edge. You can still open a log file to replay it.");
@@ -638,7 +651,7 @@ async function followHandle(handle) {
 
   try { await dbPut("kv", { k: "lastHandle", handle, name: f.name, at: Date.now() }); } catch {}
   setStatus("Following " + f.name, "on");
-  state.poll = setInterval(tick, 2000);   // backstop for when animation frames are paused
+  lastPoll = 0;   // read on the very next beat instead of waiting one out
   render();
 }
 
@@ -648,13 +661,14 @@ async function tick() {
   ticking = true;
   try {
     const f = await state.handle.getFile();
+    beatDot();
     if (f.size < state.offset) { state.offset = 0; state.carry = ""; }  // log rotated
     if (f.size === state.offset) return;
     const chunk = await f.slice(state.offset).text();
     state.offset = f.size;
     ingest(chunk, Date.now());
     archiveLive();
-    render();
+    paintNow();   // every read lands on the scope immediately, frames or no frames
   } catch (err) {
     setStatus("Lost access to the log — reopen it", "");
     stopSources();
@@ -726,12 +740,40 @@ function advanceTo(t) {
 // Runs on whichever window is actually visible. A hidden tab gets its animation
 // frames suspended by the browser, so once the radar is popped out the loop moves
 // to the pop-out window — otherwise the needle freezes the moment EQ takes focus.
-let loopWin = null, loopId = null, lastFrame = 0, lastPaint = 0, lastPoll = 0;
+let loopWin = null, loopId = null, beatId = null, lastFrame = 0, lastPaint = 0, lastPoll = 0;
+
+// One read attempt per POLL_MS, whoever asks first — the frame loop while it is running,
+// the beat timer while it is not. The shared clock keeps them from doubling up.
+function maybePoll(t) {
+  if (state.mode !== "live" || t - lastPoll < POLL_MS) return;
+  lastPoll = t;
+  tick();
+}
+
+function paintNow() {
+  lastPaint = Date.now();
+  render();
+  renderBoxes();
+  // Frames are suspended in a hidden tab, so the needle would sit still even though the
+  // readout changed underneath it. If nothing has drawn a frame lately, swing it here.
+  if (lastPaint - lastFrame > 250) drawNeedle(POLL_MS);
+}
+
+// The beat is what keeps the radar reading when requestAnimationFrame is not running:
+// a hidden tab, or a background window while EverQuest holds the foreground. It lives on
+// the same window as the loop, so popping out moves it to a window the browser keeps awake.
+function beatTick() {
+  const t = Date.now();
+  maybePoll(t);
+  if (t - lastFrame > 250) paintNow();
+}
 
 function startLoop(win) {
   if (loopWin && loopId) { try { loopWin.cancelAnimationFrame(loopId); } catch {} }
+  if (loopWin && beatId) { try { loopWin.clearInterval(beatId); } catch {} }
   loopWin = win || window;
   lastFrame = 0;
+  beatId = loopWin.setInterval(beatTick, POLL_MS);
   const step = () => {
     loopId = loopWin.requestAnimationFrame(step);
     const now2 = Date.now();
@@ -750,12 +792,19 @@ function startLoop(win) {
       advanceTo(t);
     }
 
-    if (state.mode === "live" && now2 - lastPoll > 700) { lastPoll = now2; tick(); }
-    if (now2 - lastPaint > 120) { lastPaint = now2; render(); renderBoxes(); }
+    maybePoll(now2);
+    if (now2 - lastPaint > 120) paintNow();
   };
   loopId = loopWin.requestAnimationFrame(step);
 }
 startLoop(window);
+
+// Coming back from the game: read and repaint at once rather than waiting out a beat.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  lastPoll = 0;
+  beatTick();
+});
 
 function setPlaying(on) {
   state.playing = on;
@@ -784,6 +833,8 @@ $("#btnPrev").onclick = () => {
 /* ============================ sources ============================ */
 
 function stopSources() {
+  // The beat itself keeps running — maybePoll() only touches the file in live mode, so
+  // leaving mode gives you the same effect as killing the timer, without a restart path.
   if (state.poll) clearInterval(state.poll);
   state.poll = null;
   state.playing = false;
