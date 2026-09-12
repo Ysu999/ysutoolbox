@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My Boxing Setup — Ysu Toolbox</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#14161c; --panel:rgba(29,33,43,.88); --panel2:#242938; --border:#333a4d;
+    --text:#dfe4ee; --dim:#8b93a7; --accent:#e8a33d; --glow:#7fd4f5;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;font:15px/1.5 "Segoe UI",system-ui,sans-serif;color:var(--text);
+    background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .wrap{width:100%;max-width:1100px;padding:0 20px 60px}
+  header{text-align:center;margin-top:6vh;margin-bottom:8px}
+  .back{
+    display:inline-block;margin-top:5vh;margin-bottom:-10px;color:var(--dim);text-decoration:none;
+    font-size:13px;letter-spacing:.03em;
+  }
+  .back:hover{color:var(--glow)}
+  h1{
+    font-size:clamp(26px,5vw,40px);margin:18px 0 0;letter-spacing:.1em;text-transform:uppercase;
+    color:#f2e7c9;font-weight:600;
+  }
+  .tag{color:var(--dim);margin-top:8px;font-size:14.5px}
+  .rule{width:160px;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);margin:18px auto 34px;opacity:.7}
+
+  .gallery{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;
+  }
+  figure{
+    margin:0;background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    overflow:hidden;cursor:zoom-in;transition:transform .12s ease, border-color .12s ease;
+  }
+  figure:hover{transform:translateY(-3px);border-color:var(--accent)}
+  figure img{display:block;width:100%;height:230px;object-fit:cover}
+  figcaption{padding:12px 14px;font-size:13.5px;color:var(--dim)}
+  figcaption b{color:var(--accent);display:block;font-size:14px;margin-bottom:2px}
+
+  .lightbox{
+    position:fixed;inset:0;background:rgba(10,11,15,.92);display:none;
+    align-items:center;justify-content:center;padding:30px;z-index:50;
+  }
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:100%;max-height:82vh;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  .lightbox .cap{color:var(--text);text-align:center;margin-top:14px;font-size:14px;max-width:700px}
+  .lightbox .close{
+    position:absolute;top:22px;right:28px;color:var(--dim);font-size:28px;cursor:pointer;line-height:1;
+  }
+  .lightbox .close:hover{color:var(--accent)}
+  .lightbox .nav-btn{
+    position:absolute;top:50%;transform:translateY(-50%);font-size:34px;color:var(--dim);
+    cursor:pointer;padding:10px 16px;user-select:none;
+  }
+  .lightbox .nav-btn:hover{color:var(--accent)}
+  .nav-btn.prev{left:6px}
+  .nav-btn.next{right:6px}
+
+  footer{margin-top:30px;color:#6a7288;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../index.html">&larr; Back to Toolbox</a>
+  <header>
+    <h1>My Boxing Setup</h1>
+    <div class="rule"></div>
+    <div class="tag">The desk, the fleet, and the switch panel behind the 24-box crew</div>
+  </header>
+
+  <div class="gallery" id="gallery">
+    <!-- Add new photos by copying a <figure> block and pointing the src at a new file in images/ -->
+    <figure data-full="images/boxing-setup/corner-rig-dark-1.jpg" data-cap="The command corner — full monitor wraparound running the crew.">
+      <img src="images/boxing-setup/corner-rig-dark-1.jpg" alt="Wraparound multi-monitor corner setup showing EverQuest windows">
+      <figcaption><b>Command Corner</b>Full wraparound view mid-raid</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/corner-rig-dark-2.jpg" data-cap="Same corner, wider angle — every box lined up and logged in.">
+      <img src="images/boxing-setup/corner-rig-dark-2.jpg" alt="Wide angle of the multi-monitor boxing corner">
+      <figcaption><b>Command Corner, Wide</b>All boxes lined up and logged in</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/six-monitor-wall.jpg" data-cap="Six wide, six deep — the server select screen staring back from every box before a login.">
+      <img src="images/boxing-setup/six-monitor-wall.jpg" alt="Six monitors all showing the EverQuest server select screen">
+      <figcaption><b>The Wall</b>Six-wide server select, pre-login</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/gaming-corner-widescreen.jpg" data-cap="Main seat and ultrawide, with a couple of the side boxes visible on the left.">
+      <img src="images/boxing-setup/gaming-corner-widescreen.jpg" alt="Main gaming seat with ultrawide monitor and side monitors">
+      <figcaption><b>Main Seat</b>Ultrawide + side boxes</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/mini-pcs-fleet.jpg" data-cap="The fleet — the mini PCs and NUCs that actually run the boxes, each labeled by character.">
+      <img src="images/boxing-setup/mini-pcs-fleet.jpg" alt="Row of small form factor PCs each labeled with a character name">
+      <figcaption><b>The Fleet</b>One mini PC per box, labeled by character</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/keycaps-topdown.jpg" data-cap="Top-down look at the macro pads — color-coded keycaps make it easy to spot which box is which at a glance.">
+      <img src="images/boxing-setup/keycaps-topdown.jpg" alt="Top-down view of custom macro keypads with color-coded keycaps">
+      <figcaption><b>Macro Pads</b>Color-coded keycaps, one set per box</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/switch-array-topdown.jpg" data-cap="The full switch/macro array laid out in front of the main keyboard, mid-raid chat visible above.">
+      <img src="images/boxing-setup/switch-array-topdown.jpg" alt="Full array of macro switch pads on the desk in front of the main keyboard">
+      <figcaption><b>Full Array</b>The whole panel in front of the main board</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/switch-array-named-closeup.jpg" data-cap="Close-up of the switch modules with characters named on the labels — Sulil, Maat, Eavv, Calren, Treeport, Yeou.">
+      <img src="images/boxing-setup/switch-array-named-closeup.jpg" alt="Close-up of individual switch modules labeled with character names">
+      <figcaption><b>Named Switches</b>Sulil, Maat, Eavv, Calren, Treeport, Yeou</figcaption>
+    </figure>
+
+    <figure data-full="images/boxing-setup/switches-labeled-closeup.jpg" data-cap="A finished row of labeled switch boxes plus a spare USB module off to the side.">
+      <img src="images/boxing-setup/switches-labeled-closeup.jpg" alt="Row of labeled switch boxes on a wooden desk">
+      <figcaption><b>Labeled Row</b>Finished switch boxes, ready to wire in</figcaption>
+    </figure>
+  </div>
+
+  <footer>Not affiliated with Daybreak Games</footer>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <span class="close" id="lbClose">&times;</span>
+  <span class="nav-btn prev" id="lbPrev">&#10094;</span>
+  <span class="nav-btn next" id="lbNext">&#10095;</span>
+  <div>
+    <img id="lbImg" src="" alt="">
+    <div class="cap" id="lbCap"></div>
+  </div>
+</div>
+
+<script>
+  const figs = Array.from(document.querySelectorAll('#gallery figure'));
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lbImg');
+  const lbCap = document.getElementById('lbCap');
+  let idx = 0;
+
+  function openAt(i){
+    idx = (i + figs.length) % figs.length;
+    const f = figs[idx];
+    lbImg.src = f.dataset.full;
+    lbCap.textContent = f.dataset.cap || '';
+    lb.classList.add('open');
+  }
+  figs.forEach((f, i) => f.addEventListener('click', () => openAt(i)));
+  document.getElementById('lbClose').addEventListener('click', () => lb.classList.remove('open'));
+  document.getElementById('lbPrev').addEventListener('click', () => openAt(idx - 1));
+  document.getElementById('lbNext').addEventListener('click', () => openAt(idx + 1));
+  lb.addEventListener('click', (e) => { if (e.target === lb) lb.classList.remove('open'); });
+  document.addEventListener('keydown', (e) => {
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') lb.classList.remove('open');
+    if (e.key === 'ArrowLeft') openAt(idx - 1);
+    if (e.key === 'ArrowRight') openAt(idx + 1);
+  });
+</script>
+</body>
+</html>
